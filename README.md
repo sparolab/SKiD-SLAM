@@ -24,7 +24,7 @@
 * [GTSAM (Develop version)](https://github.com/borglab/gtsam.git)
 * [libnabo 1.0.7](https://github.com/norlab-ulaval/libnabo/tree/1.0.7)
 
-* 
+
 ## HOW to run the package
 0. follow the setup required for liorf package and DiSCO-SLAM (mostly implemented)
    
