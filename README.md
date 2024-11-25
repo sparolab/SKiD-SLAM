@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>Distributed SOLiD SLAM</h1>
+  <h1>Liorf + Distributed SOLiD (Liorf-DiSO)</h1>
   <a href=""><img src="https://img.shields.io/badge/-C++-blue?logo=cplusplus" /></a>
   <a href=""><img src="https://img.shields.io/badge/Python-3670A0?logo=python&logoColor=ffdd54" /></a>
   <a href=""><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
