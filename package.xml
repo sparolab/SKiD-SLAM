@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <package>
-  <name>lio_sam</name>
+  <name>liorf</name>
   <version>1.0.0</version>
   <description>Lidar Odometry</description>
-
+  <!-- liorf_yjz_lucky_boy -->
   <maintainer email="shant@mit.edu">Tixiao Shan</maintainer>
 
   <license>TODO</license>

@@ -1,0 +1,50 @@
+<launch>
+    <arg name="no"      default="1"/>
+    <arg name="project" default="liorf"/>
+    <arg name="robot0"	default="jackal0"/>
+    <arg name="robot1"	default="jackal1"/>
+    <arg name="robot2"	default="jackal2"/>
+
+    <!-- Parameters -->
+    <rosparam file="$(find liorf)/config/lio_sam_default.yaml" command="load" />
+    <rosparam file="$(find liorf)/src/liorf-DiSO/config/mapfusion_solid.yaml" command="load"/>
+
+    <!--- LOAM robot 0 -->
+    <include file="$(find liorf)/launch/include/module_loam.launch" >
+        <arg name="robot" value="$(arg robot0)"/>
+        <arg name="id1" value="$(arg robot1)"/>
+        <arg name="id2" value="$(arg robot2)"/>
+        <arg name="no" value="$(arg no)"/>
+    </include>
+
+    <!--- LOAM robot 1 -->
+    <include file="$(find liorf)/launch/include/module_loam.launch" >
+        <arg name="robot" value="$(arg robot1)"/>
+        <arg name="id1" value="$(arg robot0)"/>
+        <arg name="id2" value="$(arg robot2)"/>
+        <arg name="no" value="$(arg no)"/>
+    </include>
+
+    <!--- LOAM robot 2 -->
+    <!-- <include file="$(find lio_sam)/launch/include/module_loam.launch" >
+        <arg name="robot" value="$(arg robot2)"/>
+        <arg name="id1" value="$(arg robot0)"/>
+        <arg name="id2" value="$(arg robot1)"/>
+        <arg name="no" value="$(arg no)"/>
+      </include> -->
+
+    <!--- Robot State TF -->
+    <!-- <include file="$(find lio_sam)/launch/include/module_robot_state_publisher.launch" /> -->
+
+    <!--- Run Navsat -->
+    <!-- <include file="$(find lio_sam)/launch/include/module_navsat.launch" /> -->
+
+    <!--- Run Rviz-->
+    <include file="$(find liorf)/launch/include/module_rviz.launch" />
+
+<!--    Run Communication Simulator-->
+<!--    <node pkg="$(arg project)" name= "$(arg project)_listener" type="listener.py" output="screen"/>-->
+
+
+
+</launch>
