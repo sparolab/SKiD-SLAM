@@ -1,5 +1,31 @@
+<div align="center">
+  <h1>Liorf + Distributed SOLiD </h1>
+  <a href=""><img src="https://img.shields.io/badge/-C++-blue?logo=cplusplus" /></a>
+  <a href=""><img src="https://img.shields.io/badge/Python-3670A0?logo=python&logoColor=ffdd54" /></a>
+  <a href=""><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
+  <a href=""><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" /></a>
+  <a href=""><img src="https://badges.aleen42.com/src/docker.svg" /></a>
+  <br />
+  <br />
 
-## HOW TO Run the package
+  <p align="center">
+    <img src="assets/kitti05_3.gif" alt="animated" width="60%" />
+  </p>
+
+</div>
+
+## :open_file_folder: What is Distributed SOLiD SLAM?
+* Distributed SOLiD SLAM is a Distributed SOLiD-based LiDAR SLAM Framework, which is a modified version of [LIO-SAM](https://github.com/yeweihuang/LIO-SAM) and [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM). ([Scan Context](https://github.com/gisbi-kim/scancontext.git) &rightarrow; [SOLiD](https://github.com/sparolab/solid.git))
+* The information exchange between robots is made through ROS-based communication. (More detailed in [here](https://github.com/sparolab/Distributed-SOLiD-SLAM/blob/main/msg/context_info.msg)!!)
+* SOLiD, which is a lightweight descriptor enables fast communication between robots.
+
+## :package: Dependencies
+* Ubuntu 20.04
+* [GTSAM (Develop version)](https://github.com/borglab/gtsam.git)
+* [libnabo 1.0.7](https://github.com/norlab-ulaval/libnabo/tree/1.0.7)
+
+* 
+## HOW to run the package
 0. follow the setup required for liorf package and DiSCO-SLAM (mostly implemented)
    
 1. Run the launch file:
