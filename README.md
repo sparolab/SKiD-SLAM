@@ -57,12 +57,10 @@
   </p>
 
 
-## WIP
-FAST-LIO-SAM & Other stable Local SLAM pipelines are to be integrated
-  
-DiSCo-SLAM FEATURES
----------------------------------------------------------------------------------------------------------------------------------------------------
-**DiSCo-SLAM is a novel framework for distributed, multi-robot SLAM intended for use with 3D LiDAR observations. The framework is the first to use the lightweight Scan Context descriptor for multi-robot SLAM, permitting a data-efficient exchange of LiDAR observations among robots. Additionally, our framework includes a two-stage global and local optimization framework for distributed multi- robot SLAM which provides stable localization results that are resilient to the unknown initial conditions that typify the search for inter-robot loop closures.**
+## :open_file_folder: What is Distributed SOLiD SLAM?
+* Distributed SOLiD SLAM is a Distributed SOLiD-based LiDAR SLAM Framework, which is a modified version of [LIO-SAM](https://github.com/yeweihuang/LIO-SAM) and [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM). ([Scan Context](https://github.com/gisbi-kim/scancontext.git) &rightarrow; [SOLiD](https://github.com/sparolab/solid.git))
+* The information exchange between robots is made through ROS-based communication. (More detailed in [here](https://github.com/sparolab/Distributed-SOLiD-SLAM/blob/main/msg/context_info.msg)!!)
+* SOLiD, which is a lightweight descriptor enables fast communication between robots.
 
 
 ## 
