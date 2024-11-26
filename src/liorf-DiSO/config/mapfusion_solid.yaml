@@ -11,13 +11,13 @@ mapfusion:
 
     interRobot:
         #topic
-        solid_topic: "context"
+        solid_topic: "solid"
         solid_frame: "base_link"
         local_topic: "liorf/mapping/cloud_info"
 
         #thres
         loop_threshold: 0.2 #
-        pcm_threshold: 20
+        pcm_threshold: 100
         icp_threshold: 3
         loop_frame_threshold: 10 #frames
         pcm_start_threshold: 2   # 5 for best result, 2 for work in harsh environment

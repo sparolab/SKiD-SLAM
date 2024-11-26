@@ -108,14 +108,14 @@ add_library(fast_max-clique_finder
 target_compile_options(fast_max-clique_finder PRIVATE -w)
 
 add_library(solid
-  src/liorf-DiSO/third_parties/SOLiD/solid.cpp
 	src/liorf-DiSO/third_parties/SOLiD/solid.h
-)
+  src/liorf-DiSO/third_parties/SOLiD/solid.cpp
+  )
 
 add_library(scan_context
 	src/liorf-DiSO/third_parties/scanContext/scanContext.h
 	src/liorf-DiSO/third_parties/scanContext/scanContext.cpp
-)
+  )
 # <!-- liorf_yjz_lucky_boy -->
 # Range Image Projection
 add_executable(${PROJECT_NAME}_imageProjection src/imageProjection.cpp ${common_lib})

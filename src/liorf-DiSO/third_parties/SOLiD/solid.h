@@ -13,6 +13,7 @@
 #include <pcl/range_image/range_image.h>
 #include <pcl/common/common.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/gicp.h>
 
 #include <vector>
 #include <cmath>

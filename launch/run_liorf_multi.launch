@@ -7,7 +7,7 @@
 
     <!-- Parameters -->
     <rosparam file="$(find liorf)/config/lio_sam_default.yaml" command="load" />
-    <rosparam file="$(find liorf)/src/liorf-DiSO/config/mapfusion.yaml" command="load"/>
+    <rosparam file="$(find liorf)/src/liorf-DiSO/config/mapfusion_solid.yaml" command="load"/>
 
     <!--- LOAM robot 0 -->
     <include file="$(find liorf)/launch/include/module_loam.launch" >

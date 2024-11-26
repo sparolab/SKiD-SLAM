@@ -1,13 +1,14 @@
 //
 // Created by yewei on 8/31/20.
-// Modified by HG Kim on 11/07/24, updated by JW Kim on 11/25/24
+// Modified by Hogyun Kim on 11/07/24
+
 //
 
 //msg
 #include "liorf/cloud_info.h"
 #include "liorf/context_info.h"
 
-//third party, SOLiD
+//third party
 #include "SOLiD/solid.h"
 #include "fast_max-clique_finder/src/findClique.h"
 
@@ -218,6 +219,7 @@ public:
         }
 
 
+
         _pub_context_info     = nh.advertise<liorf::context_info> (_solid_topic + "/context_info", 1);
         _pub_loop_info        = nh.advertise<liorf::context_info> (_robot_id + "/" + _solid_topic + "/loop_info", 1);
         _pub_cloud            = nh.advertise<sensor_msgs::PointCloud2> (_robot_id + "/" + _solid_topic + "/cloud", 1);
@@ -271,6 +273,9 @@ private:
         nh.getParam("/mapfusion/solid/num_height", _num_heights);
         nh.getParam("/mapfusion/solid/num_nearest_matches", _num_nearest_matches);
         nh.getParam("/mapfusion/solid/num_match_candidates", _num_match_candidates);
+        
+        nh.getParam("/mapfusion/solid/fov_up", _fov_up);
+        nh.getParam("/mapfusion/solid/fov_down", _fov_down);
 
         nh.getParam("/mapfusion/interRobot/loop_threshold", _loop_thres);
         nh.getParam("/mapfusion/interRobot/pcm_threshold",_pcm_thres);
@@ -394,7 +399,7 @@ private:
         context_info.numRing = _knn_feature_dim;
         context_info.numSector = _num_sectors;
         context_info.numHeight = _num_heights;
-        
+
         context_info.asolid.assign(_num_sectors, 0);
         context_info.rsolid.assign(_knn_feature_dim, 0);
         context_info.header = _cloud_header;
@@ -422,7 +427,7 @@ private:
         mtx.lock();
         _pub_context_info.publish(context_info);
         mtx.unlock();
-//        context_info.scanContextBin.
+//        context_info.SOLiDBin.
     }
 
     void OdomTransHandler(const nav_msgs::Odometry::ConstPtr& odomMsg){
@@ -654,6 +659,7 @@ private:
 
         bin.cloud.reset(new pcl::PointCloud<PointType>());
         pcl::fromROSMsg(msgIn->scanCloud, *bin.cloud);
+
         // SOLiD
         bin.asolid = Eigen::VectorXf::Zero(_num_sectors);
         bin.rsolid = Eigen::VectorXf::Zero(_knn_feature_dim);
@@ -664,7 +670,6 @@ private:
         for (int i=0; i<msgIn->numRing; i++){
             bin.rsolid(i) = msgIn->rsolid[i];
         }
-
 
         run(bin);
 
@@ -762,7 +767,7 @@ private:
 
     }
 
-    void buildKDTree(SOLiDBin bin){ 
+    void buildKDTree(SOLiDBin bin){
         _num_bin++;
         //store data received
         _bin_with_id.emplace( std::make_pair(_num_bin-1, bin) );
@@ -778,14 +783,15 @@ private:
 
         //add the latest ringkey
         _target_matrix.conservativeResize(_knn_feature_dim, _num_bin);
-                // For solid
+
+        // For solid
         Eigen::VectorXf ringkey_segment = bin.rsolid.block(0, 0, _knn_feature_dim, 1);
         float norm = ringkey_segment.norm();
         if (norm != 0) {
             ringkey_segment /= norm; // 벡터를 노름으로 나누어 정규화
         }
-        _target_matrix.block(0, _num_bin-1, _knn_feature_dim, 1) =  ringkey_segment;
-        //add the target matrix to nns
+        _target_matrix.block(0, _num_bin-1, _knn_feature_dim, 1) = ringkey_segment;
+
         _nns = Nabo::NNSearchF::createKDTreeLinearHeap(_target_matrix);
     }
 
@@ -984,6 +990,7 @@ private:
             for (int i = 0; i < numAngle; ++i)
             {
                 shiftedQuery((i+shiftIndex) % numAngle) = asolid1(i);
+                
             }
             float L1NormDist = (asolid2 - shiftedQuery).cwiseAbs().sum();
 
@@ -998,7 +1005,7 @@ private:
 
         return dist;
     }
-
+    
     pcl::PointCloud<PointType>::Ptr transformPointCloud(pcl::PointCloud<PointType>::Ptr cloudIn, PointTypePose* transformIn)
     {
         pcl::PointCloud<PointType>::Ptr cloudOut(new pcl::PointCloud<PointType>());
@@ -1449,12 +1456,13 @@ private:
     }
 };
 
+
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "fusion");
+    ros::init(argc, argv, "fushion");
     MapFusion MapF;
 
-    ROS_INFO("\033[1;32m----> Map Fusion Started.\033[0m");
+    ROS_INFO("\033[1;32m----> Map Fushion Started.\033[0m");
 
     std::thread publishThread(&MapFusion::publishContextInfoThread, &MapF);
 

@@ -3,7 +3,7 @@
     <arg name="project" default="liorf"/>
     <arg name="robot0"	default="jackal0"/>
     <arg name="robot1"	default="jackal1"/>
-    <arg name="robot2"	default="jackal2"/>
+    <!-- <arg name="robot2"	default="jackal2"/> -->
 
     <!-- Parameters -->
     <rosparam file="$(find liorf)/config/lio_sam_default.yaml" command="load" />
@@ -13,7 +13,7 @@
     <include file="$(find liorf)/launch/include/module_loam.launch" >
         <arg name="robot" value="$(arg robot0)"/>
         <arg name="id1" value="$(arg robot1)"/>
-        <arg name="id2" value="$(arg robot2)"/>
+        <!-- <arg name="id2" value="$(arg robot2)"/> -->
         <arg name="no" value="$(arg no)"/>
     </include>
 
@@ -21,7 +21,7 @@
     <include file="$(find liorf)/launch/include/module_loam.launch" >
         <arg name="robot" value="$(arg robot1)"/>
         <arg name="id1" value="$(arg robot0)"/>
-        <arg name="id2" value="$(arg robot2)"/>
+        <!-- <arg name="id2" value="$(arg robot2)"/> -->
         <arg name="no" value="$(arg no)"/>
     </include>
 

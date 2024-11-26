@@ -60,7 +60,7 @@ public:
             }
         }
         fusionTrans[0] = 0; fusionTrans[1] = 0; fusionTrans[2] = 0; fusionTrans[3] = 0; fusionTrans[4] = 0; fusionTrans[5] = 0;
-        nh.getParam("/mapfusion/interRobot/sc_topic", _fusion_topic);
+        nh.getParam("/mapfusion/interRobot/solid_topic", _fusion_topic);
         subFusionTrans   = nh.subscribe<nav_msgs::Odometry>(robot_id + "/" + _fusion_topic + "/trans_map", 2000,&TransformFusion::FusionTransHandler, this, ros::TransportHints().tcpNoDelay());
         
         subLaserOdometry = nh.subscribe<nav_msgs::Odometry>(robot_id + "/liorf/mapping/odometry", 5, &TransformFusion::lidarOdometryHandler, this, ros::TransportHints().tcpNoDelay());
