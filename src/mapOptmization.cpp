@@ -635,7 +635,7 @@ public:
         }
 
         // ICP Settings
-        pcl::IterativeClosestPoint<PointType, PointType> icp;
+        static pcl::GeneralizedIterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(historyKeyframeSearchRadius*2);
         icp.setMaximumIterations(100);
         icp.setTransformationEpsilon(1e-6);

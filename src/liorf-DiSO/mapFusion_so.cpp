@@ -1034,7 +1034,7 @@ private:
                                                PointTypePose pose_source)
     {
         // ICP Settings
-        pcl::IterativeClosestPoint<PointType, PointType> icp;
+        static pcl::GeneralizedIterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(100);
         icp.setMaximumIterations(100);
         icp.setTransformationEpsilon(1e-6);
@@ -1459,10 +1459,10 @@ private:
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "fushion");
+    ros::init(argc, argv, "fusion");
     MapFusion MapF;
 
-    ROS_INFO("\033[1;32m----> Map Fushion Started.\033[0m");
+    ROS_INFO("\033[1;32m----> Map Fusion Started.\033[0m");
 
     std::thread publishThread(&MapFusion::publishContextInfoThread, &MapF);
 

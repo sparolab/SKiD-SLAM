@@ -17,10 +17,10 @@ mapfusion:
 
         #thres
         loop_threshold: 0.2 #
-        pcm_threshold: 100
+        pcm_threshold: 20
         icp_threshold: 3
         loop_frame_threshold: 10 #frames
-        pcm_start_threshold: 2   # 5 for best result, 2 for work in harsh environment
+        pcm_start_threshold: 5   # 5 for best result, 2 for work in harsh environment
 
         robot_initial: jackal0
         use_position_search: false #use position search may introduce more global loop closure, but spend more time for candidate checking
