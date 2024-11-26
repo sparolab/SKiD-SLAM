@@ -68,12 +68,6 @@
 - Code from [Scan Context](https://github.com/irapkaist/scancontext) is used for feature description.
 - We use code from [PCM](https://github.com/lajoiepy/robust_distributed_mapper/tree/d609f59658956e1b7fe06c786ed7d07776ecb426/cpp/src/pairwise_consistency_maximization) 
 for outlier detection.
-
-
-## Dependencies
-- [gtsam 4.0.2](https://github.com/borglab/gtsam/releases) (Georgia Tech Smoothing and Mapping library)
-- Dependency for [Scan Context](https://github.com/irapkaist/scancontext):
-  - [libnabo 1.0.7](https://github.com/ethz-asl/libnabo/releases)
   
 ## Datasets
 
