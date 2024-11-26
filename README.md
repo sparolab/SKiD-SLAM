@@ -30,7 +30,7 @@
    
 1. Run the launch file:
   ```
-    roslaunch liorf run_lio_sam_multi.launch
+    roslaunch liorf run_liorf_multi.launch
   ```
 
 2. Play existing bag files:
@@ -90,6 +90,11 @@ to
 <rosparam file="$(find lio_sam)/config/params_k.yaml" command="load" />
 <rosparam file="$(find lio_sam)/src/DiSCo-SLAM/config/mapfusion_k.yaml" command="load"/>
   ```
+DiSO FEATURES
+---------------------------------------------------------------------------------------------------------------------------------------------------
+- Now utilizes G-ICP for mapFusion node, for better map-to-map matching
+
+- republish of map topics for 3rd-party application requiring map application
 
 
 LIORF FEATURES
