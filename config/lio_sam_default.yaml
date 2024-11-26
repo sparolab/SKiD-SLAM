@@ -82,8 +82,8 @@ liorf:
 
   # Visualization
   globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
-  globalMapVisualizationPoseDensity: 1.0       # meters, global map visualization keyframe density
-  globalMapVisualizationLeafSize: 0.1           # meters, global map visualization cloud density
+  globalMapVisualizationPoseDensity: 0.1       # meters, global map visualization keyframe density
+  globalMapVisualizationLeafSize: 0.2           # meters, global map visualization cloud density
 
 
 
