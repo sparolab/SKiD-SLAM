@@ -20,10 +20,10 @@
 ______________________________________________________________________
 
 ## News
-* We submit our paper to the IEEE International Conference on Robotics and Automation (ICRA) 2025 Workshop.
-  * Title: SKiD-SLAM: Robust, Lightweight, and Distributed Multi-Robot LiDAR SLAM in Resource-Constrained Field Environments
-  * Authors: [Hogyun Kim](https://scholar.google.com/citations?user=t5UEbooAAAAJ&hl=ko), [Jiwon Choi](https://scholar.google.com/citations?user=wL8VdUMAAAAJ&hl=ko), [Juwon Kim](https://scholar.google.com/citations?user=2bvLmqQAAAAJ&hl=ko), [Geonmo Yang](https://scholar.google.com/citations?user=kiBTkqMAAAAJ&hl=ko), [Dongjin Cho](https://scholar.google.com/citations?user=dE64iRYAAAAJ&hl=ko), [Hyungtae Lim](https://scholar.google.com/citations?user=S1A3nbIAAAAJ&hl=ko&oi=ao), [Younggun Cho](https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko)    
 * Code for SKiD-SLAM will be available after the review process.
+* We submit our paper to the IEEE International Conference on Robotics and Automation (ICRA) 2025 Workshop.
+  * **Title**: SKiD-SLAM: Robust, Lightweight, and Distributed Multi-Robot LiDAR SLAM in Resource-Constrained Field Environments
+  * **Authors**: [Hogyun Kim](https://scholar.google.com/citations?user=t5UEbooAAAAJ&hl=ko), [Jiwon Choi](https://scholar.google.com/citations?user=wL8VdUMAAAAJ&hl=ko), [Juwon Kim](https://scholar.google.com/citations?user=2bvLmqQAAAAJ&hl=ko), [Geonmo Yang](https://scholar.google.com/citations?user=kiBTkqMAAAAJ&hl=ko), [Dongjin Cho](https://scholar.google.com/citations?user=dE64iRYAAAAJ&hl=ko), [Hyungtae Lim](https://scholar.google.com/citations?user=S1A3nbIAAAAJ&hl=ko&oi=ao), [Younggun Cho](https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko)
 
 ## Contributing
 <a href="https://github.com/sparolab/SKiD-SLAM/graphs/contributors">
