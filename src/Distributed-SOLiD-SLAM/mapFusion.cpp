@@ -7,6 +7,7 @@
 //msg
 #include "lio_sam/cloud_info.h"
 #include "lio_sam/context_info.h"
+#include "utility.h"
 
 //third party
 #include "SOLiD/solid.h"
@@ -49,19 +50,15 @@
 #include <thread>
 #include <mutex>
 
+#include "quatro/quatro_utils.h"
+#include <kiss_matcher/KISSMatcher.hpp>
+#include <kiss_matcher/FasterPFH.hpp>
+#include <pcl/io/pcd_io.h>
+
+#include <small_gicp/registration/registration_helper.hpp>
+
 inline gtsam::Pose3_ transformTo(const gtsam::Pose3_& x, const gtsam::Pose3_& p) {
     return gtsam::Pose3_(x, &gtsam::Pose3::transformPoseTo, p);
-}
-
-sensor_msgs::PointCloud2 publishCloud(ros::Publisher *thisPub, pcl::PointCloud<PointType>::Ptr thisCloud, ros::Time thisStamp, std::string thisFrame)
-{
-    sensor_msgs::PointCloud2 tempCloud;
-    pcl::toROSMsg(*thisCloud, tempCloud);
-    tempCloud.header.stamp = thisStamp;//
-    tempCloud.header.frame_id = thisFrame;
-    if (thisPub->getNumSubscribers() != 0)
-        thisPub->publish(tempCloud);
-    return tempCloud;
 }
 
 class MapFusion{
@@ -124,6 +121,7 @@ private:
     float _loop_thres;
     float _pcm_thres;
     float _icp_thres;
+    float _tmse_thres;
     int _loop_frame_thres;
 
     std::mutex mtx_publish_1;
@@ -218,8 +216,6 @@ public:
 
         }
 
-
-
         _pub_context_info     = nh.advertise<lio_sam::context_info> (_solid_topic + "/context_info", 1);
         _pub_loop_info        = nh.advertise<lio_sam::context_info> (_robot_id + "/" + _solid_topic + "/loop_info", 1);
         _pub_cloud            = nh.advertise<sensor_msgs::PointCloud2> (_robot_id + "/" + _solid_topic + "/cloud", 1);
@@ -280,6 +276,7 @@ private:
         nh.getParam("/mapfusion/interRobot/loop_threshold", _loop_thres);
         nh.getParam("/mapfusion/interRobot/pcm_threshold",_pcm_thres);
         nh.getParam("/mapfusion/interRobot/icp_threshold",_icp_thres);
+        nh.getParam("/mapfusion/interRobot/tmes_threshold",_tmse_thres);
         nh.getParam("/mapfusion/interRobot/robot_initial",_robot_initial);
         nh.getParam("/mapfusion/interRobot/loop_frame_threshold", _loop_frame_thres);
 
@@ -844,6 +841,8 @@ private:
             distance_to_query = distBtnSOLiDs(bin.rsolid, _bin_with_id.at(idx_candidate).rsolid, 
                                               bin.asolid, _bin_with_id.at(idx_candidate).asolid, rot_idx);
 
+            std::cout << "SOLiD Dist: " << distance_to_query << std::endl;
+
             if( distance_to_query > _loop_thres)
                 continue;
 
@@ -947,6 +946,7 @@ private:
         PointTypePose pose_source_lidar = icpRelativeMotion(transformPointCloud(bin.cloud, &source_pose_initial),
                                                             transformPointCloud(bin_nearest.cloud, &target_pose), source_pose_initial);
 
+        
         if (pose_source_lidar.intensity == -1 || pose_source_lidar.intensity > _icp_thres)
             return false;
 
@@ -1020,7 +1020,7 @@ private:
 
         Eigen::Affine3f transCur = pcl::getTransformation(transformIn->x, transformIn->y, transformIn->z, transformIn->roll, transformIn->pitch, transformIn->yaw);
 
-#pragma omp parallel for num_threads(numberOfCores)
+// #pragma omp parallel for num_threads(numberOfCores)
         for (int i = 0; i < cloudSize; ++i)
         {
             pointFrom = &cloudIn->points[i];
@@ -1033,45 +1033,201 @@ private:
     }
 
     PointTypePose icpRelativeMotion(pcl::PointCloud<PointType>::Ptr source,
-                                               pcl::PointCloud<PointType>::Ptr target,
-                                               PointTypePose pose_source)
+                                    pcl::PointCloud<PointType>::Ptr target,
+                                    PointTypePose pose_source)
     {
-        // ICP Settings
-        pcl::IterativeClosestPoint<PointType, PointType> icp;
-        icp.setMaxCorrespondenceDistance(100);
-        icp.setMaximumIterations(100);
-        icp.setTransformationEpsilon(1e-6);
-        icp.setEuclideanFitnessEpsilon(1e-6);
-        icp.setRANSACIterations(0);
+        
+        // =============================================================================================================================
+        //                                                            KISS-Matcher
+        // =============================================================================================================================
+        float       voxel_size       = 2.0;
+        float       normal_radius    = voxel_size * 3.5;
+        float       fpfh_radius      = voxel_size * 5.0;
+        float       linear_thr       = 0.99;      // smaller, more points are aggressively filtered out
+        float       noise_bound_gain = 1.0; // 1.0-2.0
+        float       noise_bound      = 1.0;
+        std::string robin_mode       = "max_core";
 
-        pcl::PointCloud<PointType>::Ptr cloud_temp(new pcl::PointCloud<PointType>());
-        _downsize_filter_icp.setInputCloud(source);
-        _downsize_filter_icp.filter(*cloud_temp);
-        *source = *cloud_temp;
+        Eigen::Matrix<double, 3, Eigen::Dynamic> src_matched_eigen;
+        Eigen::Matrix<double, 3, Eigen::Dynamic> tgt_matched_eigen;
+        teaser::PointCloud           src_cloud;
+        teaser::PointCloud           tgt_cloud;
+        std::vector<Eigen::Vector3f> src_vec;
+        std::vector<Eigen::Vector3f> tgt_vec;
 
-        _downsize_filter_icp.setInputCloud(target);
-        _downsize_filter_icp.filter(*cloud_temp);
-        *target = *cloud_temp;
-
-        //Align clouds
-        icp.setInputSource(source);
-        icp.setInputTarget(target);
-        pcl::PointCloud<PointType>::Ptr unused_result(
-            new pcl::PointCloud<PointType>());
-        icp.align(*unused_result);
-        PointTypePose pose_from;
-
-        if (icp.hasConverged() == false){
-            pose_from.intensity = -1;
-            return pose_from;
+        voxelize(source, *source, voxel_size);
+        voxelize(target, *target, voxel_size);
+        
+        teaser::PointXYZ pt_teaser;
+        for (const auto  &pt : (*source).points) {
+            pt_teaser.x = pt.x;
+            pt_teaser.y = pt.y;
+            pt_teaser.z = pt.z;
+            src_cloud.push_back(pt_teaser);
+            src_vec.emplace_back(pt.x, pt.y, pt.z);
+        }
+        for (const auto  &pt : (*target).points) {
+            pt_teaser.x = pt.x;
+            pt_teaser.y = pt.y;
+            pt_teaser.z = pt.z;
+            tgt_cloud.push_back(pt_teaser);
+            tgt_vec.emplace_back(pt.x, pt.y, pt.z);
         }
 
+        // TEASER
+        // ========================================================================================================
+        // teaser::FPFHEstimation                fpfh;
+        // std::chrono::steady_clock::time_point begin_extraction  = std::chrono::steady_clock::now();
+        // auto                                  obj_descriptors   =
+        //                                         fpfh.computeFPFHFeatures(src_cloud, normal_radius, fpfh_radius);
+        // auto                                  scene_descriptors =
+        //                                         fpfh.computeFPFHFeatures(tgt_cloud, normal_radius, fpfh_radius);
+        // teaser::Matcher matcher;
+
+        // auto                                  correspondences = matcher.calculateCorrespondences(
+        //     src_cloud, tgt_cloud, *obj_descriptors, *scene_descriptors, true, true, true, 0.95, false);
+
+        // int M = correspondences.size();
+        // std::cout << "\033[1;34m[FPFH] M? " << M << "\033[0m" << std::endl;
+        // src_matched_eigen.resize(3, M);
+        // tgt_matched_eigen.resize(3, M);
+    
+        // for (int m = 0; m < M; ++m) {
+        //     const auto &[src_idx, tgt_idx] = correspondences[m];
+        //     src_matched_eigen.col(m) << src_cloud[src_idx].x, src_cloud[src_idx].y, src_cloud[src_idx].z;
+        //     tgt_matched_eigen.col(m) << tgt_cloud[tgt_idx].x, tgt_cloud[tgt_idx].y, tgt_cloud[tgt_idx].z;
+        // }
+        // ========================================================================================================
+
+        // KISS-Matcher
+        // ========================================================================================================
+        kiss_matcher::KISSMatcherConfig config(voxel_size, normal_radius, fpfh_radius, noise_bound_gain);
+        config.thr_linearity = linear_thr;
+        config.robin_mode = robin_mode;
+        config.use_ratio_test = true;
+        config.tuple_scale = 0.95;
+
+        kiss_matcher::KISSMatcher matcher(config);
+        const auto &[src_matched, tgt_matched] = matcher.match(src_vec, tgt_vec);
+        int M = src_matched.size();
+
+        src_matched_eigen.resize(3, M);
+        tgt_matched_eigen.resize(3, M);
+        for (int m = 0; m < M; ++m) {
+        src_matched_eigen.col(m) << src_matched[m].cast<double>();
+        tgt_matched_eigen.col(m) << tgt_matched[m].cast<double>();
+        }
+        // ========================================================================================================
+
+        teaser::RobustRegistrationSolver::Params quatro_param;
+        getParams(noise_bound, "TEASER", robin_mode, quatro_param);
+        teaser::RobustRegistrationSolver Quatro(quatro_param);
+        Quatro.solve(src_matched_eigen, tgt_matched_eigen);
+        auto solution_by_quatro = Quatro.getSolution();
+
+        Eigen::Matrix4f solution_eigen = Eigen::Matrix4f::Identity();
+        solution_eigen.block<3, 3>(0, 0)    = solution_by_quatro.rotation.cast<float>();
+        solution_eigen.topRightCorner(3, 1) = solution_by_quatro.translation.cast<float>();
+
+        std::cout << "# Final inliers: " << Quatro.getRotationInliers().size() << " & " << Quatro.getTranslationInliers().size() << std::endl;
+        std::cout << solution_eigen << std::endl;
+
+        pcl::transformPointCloud(*source, *source, solution_eigen);
+        // =============================================================================================================================
+
+
+        // =============================================================================================================================
+        //                                                            SMALL-GICP
+        // =============================================================================================================================
+        // small-GICP 설정
+        int num_threads = 4;
+        double downsampling_resolution = 0.5;
+        int num_neighbors = 10;
+
+        std::vector<Eigen::Vector3d> source_points, target_points;
+        source_points.reserve(source->size());
+        target_points.reserve(target->size());
+
+        for (const auto& pt : source->points) {
+            source_points.emplace_back(pt.x, pt.y, pt.z);
+        }
+        for (const auto& pt : target->points) {
+            target_points.emplace_back(pt.x, pt.y, pt.z);
+        }
+
+        // std::pair<PointCloud::Ptr, KdTree<PointCloud>::Ptr>
+        // auto [target_proc, target_tree] = small_gicp::preprocess_points(target_points, downsampling_resolution, num_neighbors, num_threads);
+        // auto [source_proc, source_tree] = small_gicp::preprocess_points(source_points, downsampling_resolution, num_neighbors, num_threads);
+
+        small_gicp::RegistrationSetting setting;
+        setting.num_threads = num_threads;
+        // setting.downsampling_resolution = 0.25;     // Downsampling resolution
+        setting.type = small_gicp::RegistrationSetting::GICP; 
+        // setting.max_correspondence_distance = 100.0;  // Maximum correspondence distance between points (e.g., triming threshold)
+
+        Eigen::Isometry3d init_T_target_source = Eigen::Isometry3d::Identity();
+        // small_gicp::RegistrationResult result = align(*target_proc, *source_proc, *target_tree, init_T_target_source, setting);
+        small_gicp::RegistrationResult result = align(target_points, source_points, init_T_target_source, setting);
+
+        Eigen::Isometry3d T = result.T_target_source;  // Estimated transformation
+        Eigen::Matrix4f T_matrix = T.matrix().cast<float>();
+        size_t num_inliers = result.num_inliers;       // Number of inlier source points
+        pcl::transformPointCloud(*source, *source, T_matrix);
+
+        PointTypePose pose_from;
         float x, y, z, roll, pitch, yaw;
-        Eigen::Affine3f correctionLidarFrame;
 
-        correctionLidarFrame = icp.getFinalTransformation();  // get transformation in camera frame
+        Eigen::Matrix4f correctionMatrix = solution_eigen * T_matrix;  // 행렬 곱셈 수행
+        Eigen::Affine3f correctionLidarFrame = Eigen::Affine3f(correctionMatrix);
+        // =============================================================================================================================
 
-        pcl::getTranslationAndEulerAngles(correctionLidarFrame, x, y, z, roll, pitch,yaw);
+
+        // =============================================================================================================================
+        //                                                            ICP
+        // =============================================================================================================================
+        // // ICP Settings
+        // // pcl::IterativeClosestPoint<PointType, PointType> icp;
+        // pcl::GeneralizedIterativeClosestPoint<PointType, PointType> icp;
+
+        // icp.setMaxCorrespondenceDistance(100);
+        // icp.setMaximumIterations(100);
+        // icp.setTransformationEpsilon(1e-6);
+        // icp.setEuclideanFitnessEpsilon(1e-6);
+        // icp.setRANSACIterations(0);
+
+        // pcl::PointCloud<PointType>::Ptr cloud_temp(new pcl::PointCloud<PointType>());
+        // _downsize_filter_icp.setInputCloud(source);
+        // _downsize_filter_icp.filter(*cloud_temp);
+        // *source = *cloud_temp;
+
+        // _downsize_filter_icp.setInputCloud(target);
+        // _downsize_filter_icp.filter(*cloud_temp);
+        // *target = *cloud_temp;
+
+        // //Align clouds
+        // icp.setInputSource(source);
+        // icp.setInputTarget(target);
+        // pcl::PointCloud<PointType>::Ptr unused_result(
+        //     new pcl::PointCloud<PointType>());
+        // icp.align(*unused_result);
+        // PointTypePose pose_from;
+
+        // if (icp.hasConverged() == false){
+        //     pose_from.intensity = -1;
+        //     return pose_from;
+        // }
+
+        // float x, y, z, roll, pitch, yaw;
+        // Eigen::Affine3f correctionLidarFrame;
+
+        // correctionLidarFrame = icp.getFinalTransformation();  // get transformation in camera frame
+        // =============================================================================================================================
+
+
+        // =============================================================================================================================
+        //                                                            Transformation
+        // =============================================================================================================================
+        // =============================================================================================================================
 
 //        if(std::min(_robot_id_th, _robot_this_th) == 1 && std::max(_robot_id_th, _robot_this_th) == 2){
 //            publishCloud(&_pub_target_cloud, target, _cloud_header.stamp, "/jackal1/odom");
@@ -1099,7 +1255,16 @@ private:
         pose_from.roll = roll;
         pose_from.pitch = pitch;
 
-        pose_from.intensity = icp.getFitnessScore();
+        // pose_from.intensity = icp.getFitnessScore();
+
+        float score = computeFitnessScore<pcl::PointXYZI>(source, target, _tmse_thres);
+        float t_mse = 100000000;
+        if (num_inliers != 0)
+        {
+            t_mse = score / static_cast<float>(num_inliers);
+        }
+        std::cout << "T-MES: " << t_mse << std::endl;
+        pose_from.intensity = t_mse;
 
         return pose_from;
 

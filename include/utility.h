@@ -22,6 +22,7 @@
 #include <pcl/common/common.h>
 #include <pcl/common/transforms.h>
 #include <pcl/registration/icp.h>
+#include <pcl/registration/gicp.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/filter.h>
 #include <pcl/filters/voxel_grid.h>
@@ -52,6 +53,17 @@
 #include <array>
 #include <thread>
 #include <mutex>
+
+#include <Eigen/Core>
+#include <teaser/ply_io.h>
+#include <teaser/registration.h>
+#include <teaser/geometry.h>
+#include <teaser/utils.h>
+
+#define NOISE_BOUND 0.05
+#define N_OUTLIERS 700
+#define OUTLIER_TRANSLATION_LB 0.6
+#define OUTLIER_TRANSLATION_UB 2.0
 
 using namespace std;
 
@@ -98,6 +110,7 @@ public:
     float lidarMaxRange;
 
     // IMU
+    int   imuType;
     float imuAccNoise;
     float imuGyrNoise;
     float imuAccBiasN;
@@ -200,6 +213,7 @@ public:
         nh.param<float>("lio_sam/lidarMinRange", lidarMinRange, 1.0);
         nh.param<float>("lio_sam/lidarMaxRange", lidarMaxRange, 1000.0);
 
+        nh.param<int>("lio_sam/imuType", imuType, 0);
         nh.param<float>("lio_sam/imuAccNoise", imuAccNoise, 0.01);
         nh.param<float>("lio_sam/imuGyrNoise", imuGyrNoise, 0.001);
         nh.param<float>("lio_sam/imuAccBiasN", imuAccBiasN, 0.0002);
@@ -266,7 +280,22 @@ public:
         imu_out.angular_velocity.z = gyr.z();
         // rotate roll pitch yaw
         Eigen::Quaterniond q_from(imu_in.orientation.w, imu_in.orientation.x, imu_in.orientation.y, imu_in.orientation.z);
-        Eigen::Quaterniond q_final = q_from * extQRPY;
+        
+        Eigen::Quaterniond q_final;
+        // if (imuType == 0) {
+        //     q_final = extQRPY;
+        // } else if (imuType == 1)
+        //     q_final = q_from * extQRPY;
+        // else
+        //     std::cout << "pls set your imu_type, 0 for 6axis and 1 for 9axis" << std::endl;
+        if (imuType == 0) {
+            q_final = extQRPY;  // 🔥 정규화 적용
+        } else if (imuType == 1) {
+            q_final = (q_from * extQRPY);  // 🔥 정규화 적용
+        } else {
+            std::cout << "pls set your imu_type, 0 for 6axis and 1 for 9axis" << std::endl;
+        }
+        
         imu_out.orientation.x = q_final.x();
         imu_out.orientation.y = q_final.y();
         imu_out.orientation.z = q_final.z();
@@ -342,6 +371,118 @@ float pointDistance(PointType p)
 float pointDistance(PointType p1, PointType p2)
 {
     return sqrt((p1.x-p2.x)*(p1.x-p2.x) + (p1.y-p2.y)*(p1.y-p2.y) + (p1.z-p2.z)*(p1.z-p2.z));
+}
+
+template <typename PointT>
+void removeNaNFromPointCloud(const pcl::PointCloud<PointT>& cloud_in,
+                             pcl::PointCloud<PointT>& cloud_out,
+                             std::vector<int>& indices)
+{
+    if (&cloud_in != &cloud_out)
+    {
+        cloud_out.header = cloud_in.header;
+        cloud_out.resize(cloud_in.size());
+        cloud_out.sensor_origin_ = cloud_in.sensor_origin_;
+        cloud_out.sensor_orientation_ = cloud_in.sensor_orientation_;
+    }
+
+    indices.resize(cloud_in.size());
+    std::size_t j = 0;
+
+    cloud_out.is_dense = true;
+
+    for (std::size_t i = 0; i < cloud_in.size(); ++i)
+    {
+        if (!std::isfinite(cloud_in[i].x) ||
+            !std::isfinite(cloud_in[i].y) ||
+            !std::isfinite(cloud_in[i].z))
+            continue;
+
+        if (cloud_out.is_dense && !pcl::isFinite(cloud_in[i]))
+            cloud_out.is_dense = false;
+
+        cloud_out[j] = cloud_in[i]; // 유효한 포인트를 저장
+        indices[j] = i;            // 원본 인덱스를 기록
+        ++j;
+    }
+
+    if (j != cloud_in.size())
+    {
+        cloud_out.resize(j);
+        indices.resize(j);
+    }
+
+    cloud_out.height = 1; // 1D 포인트 클라우드 가정
+    cloud_out.width = static_cast<uint32_t>(j);
+}
+
+void voxelize(pcl::PointCloud<pcl::PointXYZI>::Ptr pc_src, pcl::PointCloud<pcl::PointXYZI>& pc_dst, float var_voxel_size){
+
+  static pcl::VoxelGrid<pcl::PointXYZI> voxel_filter;
+  voxel_filter.setInputCloud(pc_src);
+  voxel_filter.setLeafSize(var_voxel_size, var_voxel_size, var_voxel_size);
+  voxel_filter.filter(pc_dst);
+}
+
+void getParams(const double noise_bound, const std::string reg_type, const std::string robin_mode,
+               teaser::RobustRegistrationSolver::Params& params) {
+  params.noise_bound = noise_bound;
+  params.cbar2 = 1;
+  params.estimate_scaling = false;
+  params.rotation_max_iterations = 100;
+  params.rotation_gnc_factor = 1.4;
+  if (reg_type == "Quatro") {
+    params.rotation_estimation_algorithm =
+        teaser::RobustRegistrationSolver::ROTATION_ESTIMATION_ALGORITHM::QUATRO;
+    params.inlier_selection_mode == teaser::RobustRegistrationSolver::INLIER_SELECTION_MODE::PMC_HEU;
+  } else if  (reg_type == "TEASER") {
+    params.rotation_estimation_algorithm =
+        teaser::RobustRegistrationSolver::ROTATION_ESTIMATION_ALGORITHM::GNC_TLS;
+    params.inlier_selection_mode == teaser::RobustRegistrationSolver::INLIER_SELECTION_MODE::PMC_EXACT;
+  } else {
+    throw std::invalid_argument("Not implemented!");
+  }
+  if (robin_mode == "max_clique" || robin_mode == "max_core") {
+    params.use_max_clique = false;
+  }
+  params.rotation_cost_threshold = 0.0002;
+}
+
+template<typename PointType>
+float computeFitnessScore(typename pcl::PointCloud<PointType>::Ptr source,
+                          typename pcl::PointCloud<PointType>::Ptr target,
+                          float d_max) {
+    if (source->empty() || target->empty()) {
+        std::cerr << "Error: Source or target point cloud is empty!" << std::endl;
+        return std::numeric_limits<float>::max();
+    }
+
+    pcl::KdTreeFLANN<PointType> kdtree;
+    kdtree.setInputCloud(target); // target을 kdtree로 설정
+
+    float fitness_score = 0.0;
+    int valid_points = 0;
+
+    for (const auto& point : source->points) {
+        std::vector<int> nearest_indices(1);
+        std::vector<float> nearest_distances(1);
+
+        if (kdtree.nearestKSearch(point, 1, nearest_indices, nearest_distances) > 0) {
+            if (nearest_distances[0] <= d_max) {
+                fitness_score += nearest_distances[0]*nearest_distances[0];  // 최근접 점과의 유클리드 거리
+            }
+            valid_points++;
+        }
+    }
+
+    if (valid_points > 0) {
+        fitness_score /= static_cast<float>(valid_points); // 평균 거리 계산
+    } 
+    else {
+        fitness_score = std::numeric_limits<float>::max();
+    }
+
+    return fitness_score;
 }
 
 #endif

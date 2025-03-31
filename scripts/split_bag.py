@@ -49,9 +49,9 @@ if __name__ == '__main__':
         # get the arguments from the argument parser
         ARGS = PARSER.parse_args()
         # open the output bag in an automatically closing context
-        topics = ['/points_raw', '/imu_raw', '/gps/fix']
-        split_places = [90, 180, 290]
-        robot_names =  ['/jackal0', '/jackal1', '/jackal2']
+        topics = ['/points_raw', '/imu_raw', '/gps/fix', '/imu_correct', '/camera/image_raw/compressed']
+        split_places = [411, 822, 1233, 1643]
+        robot_names =  ['/jackal0', '/jackal1', '/jackal2', '/jackal3']
         
         cnt = 0
         time_initial = 0
