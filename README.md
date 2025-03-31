@@ -4,15 +4,19 @@
   <a href=""><img src="https://img.shields.io/badge/Python-3670A0?logo=python&logoColor=ffdd54" /></a>
   <a href=""><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
   <a href=""><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" /></a>
+  <a href=""><img src="https://img.shields.io/badge/project-page-blue" /></a>
   <a href=""><img src="https://badges.aleen42.com/src/docker.svg" /></a>
   <br />
   <br />
 
   <p align="center">
-    <img src="assets/kitti05_3.gif" alt="animated" width="60%" />
+    <img src="assets/pipeline.png" alt="SKiD SLAM" width="95%" />
   </p>
+  <p><strong><em>Robust, Lightweight, and Distributed Multi-Robot LiDAR SLAM</em></strong></p>
 
 </div>
+
+______________________________________________________________________
 
 ## :newspaper: News
 * We release a modified version that changed LIO-SAM to LIORF in [here](https://github.com/sparolab/Distributed-SOLiD-SLAM/tree/liorf)!!
