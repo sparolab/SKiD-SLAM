@@ -19,4 +19,9 @@
 
 ______________________________________________________________________
 
-Code for SKiD-SLAM will be available after the review process.
+# News
+* We submit our paper to the IEEE International Conference on Robotics and Automation (ICRA) 2025 Workshop.
+* Code for SKiD-SLAM will be available after the review process.
+
+# Contributing
+Hogyun Kim, Jiwon Choi, Juwon Kim, Geonmo Yang, Dongjin Cho, Hyungtae Lim, and Younggun Cho
