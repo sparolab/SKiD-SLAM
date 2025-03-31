@@ -24,4 +24,7 @@ ______________________________________________________________________
 * Code for SKiD-SLAM will be available after the review process.
 
 # Contributing
-Hogyun Kim, Jiwon Choi, Juwon Kim, Geonmo Yang, Dongjin Cho, Hyungtae Lim, and Younggun Cho
+
+<a href="https://github.com/sparolab/SKiD-SLAM/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=sparolab/SKiD-SLAM" />
+</a>
