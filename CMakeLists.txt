@@ -24,11 +24,21 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 find_package(OpenMP REQUIRED)
-find_package(PCL REQUIRED QUIET)
+find_package(PCL REQUIRED COMPONENTS common io filters)
 find_package(OpenCV REQUIRED QUIET)
 find_package(GTSAM REQUIRED QUIET)
 find_package(Eigen3 REQUIRED)
 find_package(libnabo REQUIRED)
+
+find_package(teaserpp REQUIRED)
+###### To include ROBIN ######
+find_package(robin REQUIRED)
+find_package(xenium REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(OpenMP REQUIRED)
+###### To include Kiss-Matcher ######
+find_package(kiss_matcher_cpp REQUIRED)
+
 
 add_message_files(
   DIRECTORY msg
@@ -123,7 +133,14 @@ add_executable(${PROJECT_NAME}_mapFusion src/Distributed-SOLiD-SLAM/mapFusion.cp
 add_dependencies(${PROJECT_NAME}_mapFusion ${catkin_EXPORTED_TARGETS}  ${PROJECT_NAME}_generate_messages_cpp)
 target_link_libraries(${PROJECT_NAME}_mapFusion ${catkin_LIBRARIES}
 		${PCL_LIBRARIES} nabo
-    gtsam fast_max-clique_finder solid "/usr/local/lib/libnabo.a" "/usr/lib/x86_64-linux-gnu/libgomp.so.1")
+    gtsam fast_max-clique_finder solid "/usr/local/lib/libnabo.a" "/usr/lib/x86_64-linux-gnu/libgomp.so.1" "/usr/local/lib/libsmall_gicp.so" 
+    teaserpp::teaser_registration
+    teaserpp::teaser_io
+    TBB::tbb
+    kiss_matcher_cpp::core
+    robin::robin
+    ${GLOG_LIBRARIES}
+    )
 
 
 #catkin_install_python(PROGRAMS scripts/listener.py

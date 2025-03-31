@@ -6,7 +6,7 @@
     <arg name="robot2"	default="jackal2"/>
 
     <!-- Parameters -->
-    <rosparam file="$(find lio_sam)/config/params_k.yaml" command="load" />
+    <rosparam file="$(find lio_sam)/config/params_park.yaml" command="load" />
     <rosparam file="$(find lio_sam)/src/Distributed-SOLiD-SLAM/config/mapfusion.yaml" command="load" />
 
     <!--- LOAM robot 0 -->
@@ -44,7 +44,6 @@
 
 <!--    Run Communication Simulator-->
 <!--    <node pkg="$(arg project)" name= "$(arg project)_listener" type="listener.py" output="screen"/>-->
-
 
 
 </launch>

@@ -1,17 +1,19 @@
 #include "utility.h"
 #include "lio_sam/cloud_info.h"
 
-#define PCL_NO_PRECOMPILE
-#include <pcl/filters/filter.h>
+// #include <pcl/filters/filter.h>
+// #include <pcl/filters/filter_indices.h>
+
 
 struct VelodynePointXYZIRT
 {
-    PCL_ADD_POINT4D
+    PCL_ADD_POINT4D;
     PCL_ADD_INTENSITY;
     uint16_t ring;
     float time;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
+
 POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
     (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
     (uint16_t, ring, ring) (float, time, time)
@@ -27,6 +29,7 @@ struct OusterPointXYZIRT {
     uint32_t range;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
+
 POINT_CLOUD_REGISTER_POINT_STRUCT(OusterPointXYZIRT,
     (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
     (uint32_t, t, t) (uint16_t, reflectivity, reflectivity)
@@ -235,6 +238,9 @@ public:
         cloudHeader = currentCloudMsg.header;
         timeScanCur = cloudHeader.stamp.toSec();
         timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
+
+        std::vector<int> indices;
+        ::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
 
         if (laserCloudIn->is_dense == false)
         {
