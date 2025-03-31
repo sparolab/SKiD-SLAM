@@ -19,11 +19,11 @@
 
 ______________________________________________________________________
 
-# News
+## News
 * We submit our paper to the IEEE International Conference on Robotics and Automation (ICRA) 2025 Workshop.
 * Code for SKiD-SLAM will be available after the review process.
 
-# Contributing
+## Contributing
 
 <a href="https://github.com/sparolab/SKiD-SLAM/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=sparolab/SKiD-SLAM" />
