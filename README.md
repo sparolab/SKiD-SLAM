@@ -13,7 +13,7 @@
   <p align="center">
     <img src="assets/pipeline.png" alt="SKiD SLAM" width="95%" />
   </p>
-  <p><strong><em>Robust, Lightweight, and Distributed Multi-Robot LiDAR SLAM</em></strong></p>
+  <p><strong><em>[Stay Tuned!!] Robust, Lightweight, and Distributed Multi-Robot LiDAR SLAM</em></strong></p>
 
 </div>
 
