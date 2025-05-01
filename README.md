@@ -20,6 +20,7 @@
 ______________________________________________________________________
 
 ## News
+* Our paper has been selected for a spotlight talk! 
 * Our paper is accepted at the IEEE International Conference on Robotics and Automation (ICRA) 2025 Field Robotics Workshop.
 * Our code for SKiD-SLAM will be available after the review process.
 * We submit our paper to the IEEE International Conference on Robotics and Automation (ICRA) 2025 Field Robotics Workshop.
