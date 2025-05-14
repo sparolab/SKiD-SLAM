@@ -6,7 +6,7 @@
   <a href=""><img src="https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black" /></a>
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/project-page-blue" /></a>
   <a href=""><img src="https://badges.aleen42.com/src/docker.svg" /></a>
-  <a href=""><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
+  <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <br />
   <br />
 
