@@ -3,7 +3,6 @@
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/-C++-blue?logo=cplusplus" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS2-Humble-blue" /></a>
-  <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white" /></a>
   <a href="#docker"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" /></a>
   <br />
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/Project-Page-blue" /></a>
