@@ -8,7 +8,7 @@ You are setting up and running SKiD-SLAM (distributed multi-robot LiDAR SLAM) fo
 
 1. ROS version: **ROS 1 (Noetic)** or **ROS 2 (Humble)**.
 2. Build method: **Docker** (recommended; works on any Linux host with Docker) or **from source** (needs a native Noetic install on Ubuntu 20.04, or Humble on Ubuntu 22.04).
-3. Dataset: whether they already have `majang.bag` / `planetary_analog.bag` (and where), or whether you should download it (step 4). The bags are large (`majang.bag` ≈ 23 GB, `planetary_analog.bag` ≈ 67 GB), so start with `majang`.
+3. Dataset: whether they already have `majang.bag` (and where), or whether you should download it (step 4, ≈ 23 GB).
 4. Where to save results (default `~/skid_slam_results`).
 
 ## 1. Check the machine
@@ -68,21 +68,23 @@ A successful build produces 5 executables: `skid_slam_imageProjection`, `skid_sl
 
 ## 4. Prepare the data
 
-Download the bag unless the user already has it. All bags are in the [Dropbox folder](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0):
+Download the data unless the user already has it. The [Dropbox folder](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0) downloads as one uncompressed zip when the link ends in `dl=1`:
 
 ```bash
 mkdir -p ~/skid_slam_data && cd ~/skid_slam_data
-curl -L -o majang.bag "MAJANG_BAG_URL"                     # ≈ 23 GB
-# curl -L -o planetary_analog.bag "PLANETARY_ANALOG_BAG_URL" # ≈ 67 GB
+curl -L -o skid_slam_data.zip \
+  "https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&dl=1"
+unzip skid_slam_data.zip && rm skid_slam_data.zip
+ls -lh   # majang.bag ≈ 23 GB
 ```
 
-Check the file size once the download finishes. If a direct link fails, ask the user to download the file from the Dropbox folder in a browser.
+Extracting needs as much free space again as the zip, so check `df -h` before you start. The download is large: tell the user, and run it in the background while you build.
 
 - ROS 1: use the `.bag` file as is.
 - ROS 2: the bags are ROS 1 bags. Convert them once (`pip install rosbags`):
 
   ```bash
-  rosbags-convert --src majang.bag --dst majang --dst-typestore ros2_humble
+  rosbags-convert --src majang.bag --dst majang --dst-typestore ros2_humble --dst-version 5
   ```
 
 ## 5. Run
@@ -110,7 +112,8 @@ docker run -d --name skid --net=host -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/
   bash -c "source /ros2_ws/install/setup.bash && exec ros2 launch skid_slam run.launch.py config:=majang \
            save_poses:=true save_map:=true save_whole_map:=true save_dir:=/results"
 docker exec -it skid bash -c "source /ros2_ws/install/setup.bash && ros2 bag play /data/majang --clock"
-docker stop -t 120 skid   # SIGTERM to the launch; results are saved before it exits
+docker kill --signal=SIGINT skid && docker wait skid   # Ctrl-C to the launch; results are saved before it exits
+docker rm skid
 ```
 
 For ROS 1, use `skid-slam:noetic`, `source /catkin_ws/devel/setup.bash`, `exec roslaunch skid_slam run.launch ...`, and `rosbag play --clock /data/majang.bag`. (`roslaunch` starts the `roscore` itself.)
@@ -164,6 +167,6 @@ When the bag has finished, stop the launch with **Ctrl-C** (SIGINT) and wait. Re
 | colcon: duplicate package `skid_slam` or a catkin error | Build with `--base-paths <repo>/ros2` |
 | Nodes start but nothing happens | The bag must be played with `--clock`, and the topics are `/<robot>/<pointCloudTopic>` and `/<robot>/<imuTopic>` from the config |
 | Robots never align | Check the logs for `verified`. If there are none, see the tuning tips in `ros1/config/GUIDE.md` (`loop_threshold`, `fitness_threshold`) |
-| No results written | Stop the launch with Ctrl-C (SIGINT), not SIGKILL, and wait for the save to finish |
+| No results written | Stop the launch with Ctrl-C / SIGINT and wait for the save to finish. `ros2 launch` exits on SIGTERM without stopping its nodes cleanly, so don't use `docker stop`, `kill` or `timeout` |
 
 More detail: `ros1/launch/GUIDE.md`, `ros2/launch/GUIDE.md` (arguments and outputs), and `ros1/config/GUIDE.md`, `ros2/config/GUIDE.md` (parameters).

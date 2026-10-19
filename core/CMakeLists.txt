@@ -6,6 +6,9 @@ project(skid_core LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+# Build the third-party libraries statically so the node executables are self-contained
+# (nothing extra to install next to them in catkin/colcon install spaces).
+set(BUILD_SHARED_LIBS OFF)
 
 set(SKID_THIRDPARTY ${CMAKE_CURRENT_LIST_DIR}/../thirdparty)
 foreach(_dep SOLiD KISS-Matcher small_gicp)

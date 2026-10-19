@@ -76,6 +76,18 @@ private:
         return declare_parameter<T>(name, default_value);
     }
 
+    // Numbers written without a decimal point in YAML (e.g. `threshold: 10`) arrive as integers.
+    double number(const std::string& name, double default_value)
+    {
+        rcl_interfaces::msg::ParameterDescriptor desc;
+        desc.dynamic_typing = true;
+        declare_parameter(name, rclcpp::ParameterValue(default_value), desc);
+        const rclcpp::ParameterValue v = get_parameter(name).get_parameter_value();
+        if (v.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+            return static_cast<double>(v.get<int64_t>());
+        return v.get<double>();
+    }
+
 public:
     MapFusionNode(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
         : Node("skid_slam_mapFusion", options)
@@ -170,39 +182,39 @@ private:
         cfg.solid.num_range = param<int>("mapfusion.solid.num_range", 40);
         cfg.solid.num_angle = param<int>("mapfusion.solid.num_angle", 60);
         cfg.solid.num_height = param<int>("mapfusion.solid.num_height", 64);
-        cfg.solid.min_range = param<double>("mapfusion.solid.min_range", 0.0);
-        cfg.solid.max_range = param<double>("mapfusion.solid.max_range", 40.0);
-        cfg.solid.fov_up = param<double>("mapfusion.solid.fov_up", 22.5);
-        cfg.solid.fov_down = param<double>("mapfusion.solid.fov_down", -22.5);
-        cfg.solid.voxel_size = param<double>("mapfusion.solid.voxel_size", 0.0);
+        cfg.solid.min_range = number("mapfusion.solid.min_range", 0.0);
+        cfg.solid.max_range = number("mapfusion.solid.max_range", 40.0);
+        cfg.solid.fov_up = number("mapfusion.solid.fov_up", 22.5);
+        cfg.solid.fov_down = number("mapfusion.solid.fov_down", -22.5);
+        cfg.solid.voxel_size = number("mapfusion.solid.voxel_size", 0.0);
 
         cfg.solid.knn = param<int>("mapfusion.retrieval.num_nearest", 30);
         cfg.num_candidates = param<int>("mapfusion.retrieval.num_candidates", 1);
-        cfg.loop_threshold = param<double>("mapfusion.retrieval.loop_threshold", 0.5);
+        cfg.loop_threshold = number("mapfusion.retrieval.loop_threshold", 0.5);
         cfg.use_position_search = param<bool>("mapfusion.retrieval.use_position_search", false);
-        cfg.position_search_radius_this = param<double>("mapfusion.retrieval.position_search_radius_this", 5.0);
-        cfg.position_search_radius_other = param<double>("mapfusion.retrieval.position_search_radius_other", 10.0);
+        cfg.position_search_radius_this = number("mapfusion.retrieval.position_search_radius_this", 5.0);
+        cfg.position_search_radius_other = number("mapfusion.retrieval.position_search_radius_other", 10.0);
 
-        cfg.reg_voxel_size = param<double>("mapfusion.registration.voxel_size", 0.75);
+        cfg.reg_voxel_size = number("mapfusion.registration.voxel_size", 0.75);
         cfg.use_kiss_matcher = param<bool>("mapfusion.registration.use_kiss_matcher", true);
-        cfg.km_normal_radius_gain = param<double>("mapfusion.registration.kiss_matcher.normal_radius_gain", 3.5);
-        cfg.km_fpfh_radius_gain = param<double>("mapfusion.registration.kiss_matcher.fpfh_radius_gain", 5.0);
-        cfg.km_linearity_threshold = param<double>("mapfusion.registration.kiss_matcher.linearity_threshold", 0.99);
-        cfg.km_robin_noise_bound_gain = param<double>("mapfusion.registration.kiss_matcher.robin_noise_bound_gain", 1.0);
-        cfg.km_solver_noise_bound_gain = param<double>("mapfusion.registration.kiss_matcher.solver_noise_bound_gain", 1.0);
+        cfg.km_normal_radius_gain = number("mapfusion.registration.kiss_matcher.normal_radius_gain", 3.5);
+        cfg.km_fpfh_radius_gain = number("mapfusion.registration.kiss_matcher.fpfh_radius_gain", 5.0);
+        cfg.km_linearity_threshold = number("mapfusion.registration.kiss_matcher.linearity_threshold", 0.99);
+        cfg.km_robin_noise_bound_gain = number("mapfusion.registration.kiss_matcher.robin_noise_bound_gain", 1.0);
+        cfg.km_solver_noise_bound_gain = number("mapfusion.registration.kiss_matcher.solver_noise_bound_gain", 1.0);
         cfg.km_robin_mode = param<std::string>("mapfusion.registration.kiss_matcher.robin_mode", "max_core");
         cfg.km_use_ratio_test = param<bool>("mapfusion.registration.kiss_matcher.use_ratio_test", true);
-        cfg.km_tuple_scale = param<double>("mapfusion.registration.kiss_matcher.tuple_scale", 0.95);
+        cfg.km_tuple_scale = number("mapfusion.registration.kiss_matcher.tuple_scale", 0.95);
         cfg.km_use_quatro = param<bool>("mapfusion.registration.kiss_matcher.use_quatro", false);
         cfg.gicp_num_threads = param<int>("mapfusion.registration.gicp.num_threads", 4);
-        cfg.gicp_downsampling_resolution = param<double>("mapfusion.registration.gicp.downsampling_resolution", 0.25);
-        cfg.gicp_max_correspondence_distance = param<double>("mapfusion.registration.gicp.max_correspondence_distance", 1.0);
-        cfg.fitness_threshold = param<double>("mapfusion.registration.fitness_threshold", 1.2);
-        cfg.fitness_max_distance = param<double>("mapfusion.registration.fitness_max_distance", 100.0);
+        cfg.gicp_downsampling_resolution = number("mapfusion.registration.gicp.downsampling_resolution", 0.25);
+        cfg.gicp_max_correspondence_distance = number("mapfusion.registration.gicp.max_correspondence_distance", 1.0);
+        cfg.fitness_threshold = number("mapfusion.registration.fitness_threshold", 1.2);
+        cfg.fitness_max_distance = number("mapfusion.registration.fitness_max_distance", 100.0);
 
         cfg.use_pcm = param<bool>("mapfusion.pcm.enable", true);
         cfg.pcm_start_threshold = param<int>("mapfusion.pcm.start_threshold", 2);
-        cfg.pcm_threshold = param<double>("mapfusion.pcm.threshold", 5.0);
+        cfg.pcm_threshold = number("mapfusion.pcm.threshold", 5.0);
 
         for (const auto& id : {cfg.robot_id, cfg.robot_initial}) {
             if (!skid_slam::isValidRobotName(id))
