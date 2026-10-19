@@ -10,8 +10,14 @@
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <br />
   <img src="assets/pipeline.png" alt="SKiD-SLAM" width="95%" />
-  <p><strong><em>Robust, lightweight, and distributed multi-robot LiDAR SLAM.</em></strong></p>
-  <p><strong>[IEEE T-FR 2026]</strong> Resource-Aware Distributed Multi-Robot LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites</p>
+  <br />
+  <br />
+  <p>
+    <strong>[IEEE T-FR 2026]</strong><br />
+    <strong>SKiD-SLAM: Resource-Aware Distributed Multi-Robot<br />
+    LiDAR SLAM for Planetary Missions with Field<br />
+    Deployments at Analog Sites</strong>
+  </p>
 </div>
 
 ______________________________________________________________________
