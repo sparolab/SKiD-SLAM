@@ -13,10 +13,8 @@
   <br />
   <br />
   <p>
-    <strong>[IEEE T-FR 2026]</strong><br />
-    <strong>SKiD-SLAM: Resource-Aware Distributed Multi-Robot<br />
-    LiDAR SLAM for Planetary Missions with Field<br />
-    Deployments at Analog Sites</strong>
+    <strong>[IEEE T-FR 2026] SKiD-SLAM: Resource-Aware Distributed Multi-Robot<br />
+    LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites</strong>
   </p>
 </div>
 
