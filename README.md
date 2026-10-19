@@ -4,34 +4,15 @@
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white" /></a>
   <a href="#docker"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" /></a>
-  <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/project-page-blue" /></a>
+  <br />
+  <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/Project-Page-blue" /></a>
   <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <br />
   <br />
-  <h3>SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM<br/>for Planetary Missions with Field Deployments at Analog Sites</h3>
-  <p><strong>IEEE Transactions on Field Robotics (T-FR), 2026</strong></p>
-  <p><sub>
-    <a href="https://scholar.google.com/citations?user=t5UEbooAAAAJ&hl=ko">Hogyun Kim</a><sup>1</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=2bvLmqQAAAAJ&hl=ko">Juwon Kim</a><sup>1</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=dE64iRYAAAAJ&hl=ko">Dongjin Cho</a><sup>1</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=wL8VdUMAAAAJ&hl=ko">Jiwon Choi</a><sup>1</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=kiBTkqMAAAAJ&hl=ko">Geonmo Yang</a><sup>1</sup>,&nbsp;
-    Seokhwan Jeong<sup>1</sup>,&nbsp;
-    Jiyun Lee<sup>1</sup>,&nbsp;
-    Miryeong Park<sup>1</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=S1A3nbIAAAAJ&hl=ko">Hyungtae Lim</a><sup>2*</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko">Younggun Cho</a><sup>1*</sup>
-  </sub></p>
-  <p><sub>
-    <sup>1</sup><a href="https://sparolab.github.io/">Spatial AI and Robotics (SPARO) Lab</a>, Inha University&nbsp;&nbsp;&nbsp;
-    <sup>2</sup>LIDS, MIT
-    <br/>
-    <sup>*</sup>Corresponding authors
-  </sub></p>
-  <br />
   <p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM" width="95%" /></p>
   <p><strong><em>Robust, lightweight, and distributed multi-robot LiDAR SLAM.</em></strong></p>
+  <p><strong>[IEEE T-FR 2026]</strong> Resource-Aware Distributed Multi-Robot LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites</p>
 </div>
 
 ______________________________________________________________________
@@ -43,10 +24,6 @@ Each robot runs its own LiDAR-inertial odometry. The robots share compact [SOLiD
 
 Multi-robot bags used in the paper (`majang.bag`, `planetary_analog.bag`) are available on **[Dropbox](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0)**.
 Each bag holds `/<robot>/ouster/points` and an IMU topic for every robot, and runs with the matching config in [`config/params/`](config/params).
-
-## :newspaper: News
-* [25.04.29] Our paper has been selected for a spotlight talk!
-* [25.04.17] Our paper is accepted at the ICRA 2025 Field Robotics Workshop.
 
 ______________________________________________________________________
 
@@ -127,9 +104,12 @@ All parameters are read at runtime, so tuning never requires a rebuild. To use y
 
 ______________________________________________________________________
 
-## :books: Citation
+## Citation
 
-If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org/abs/2505.08230):
+If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org/abs/2505.08230).
+
+<details>
+  <summary><strong>See bibtex</strong></summary>
 
 ```bibtex
 @article{kim2026skidslam,
@@ -140,6 +120,16 @@ If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org
 }
 ```
 
-## :pray: Acknowledgements
+</details>
+
+## Contributing
+
+We envision SKiD-SLAM as a community-driven project and love to see it grow through contributions from the community. We would love to see your face in the list below, just open a Pull Request!
+
+<a href="https://github.com/sparolab/SKiD-SLAM/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=sparolab/SKiD-SLAM" />
+</a>
+
+## Acknowledgements
 
 SKiD-SLAM builds on [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM), [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM), [SOLiD](https://github.com/sparolab/SOLiD), [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher), and [small_gicp](https://github.com/koide3/small_gicp). We thank the authors for open-sourcing their work.
