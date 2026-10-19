@@ -1,2 +1,5 @@
-You should have received this Fast Max-Clique Finder version along with robust\_multirobot\_map\_merging (https://github.com/lajoiepy/robust\_multirobot\_map\_merging).
-See the original Fast Max-Clique Finder library at: http://cucis.ece.northwestern.edu/projects/MAXCLIQUE/
+# Fast Max-Clique Finder
+
+This copy of the Fast Max-Clique Finder is the version shipped with [robust_multirobot_map_merging](https://github.com/lajoiepy/robust_multirobot_map_merging) (PCM). SKiD-SLAM uses it to find the largest set of mutually consistent inter-robot loops.
+
+Original library: http://cucis.ece.northwestern.edu/projects/MAXCLIQUE/ (see [COPYRIGHT](COPYRIGHT)).
