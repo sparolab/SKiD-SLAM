@@ -39,10 +39,15 @@ cd SKiD-SLAM && git submodule update --init
 ### Docker
 
 ```bash
-docker build -f docker/Dockerfile.noetic -t skid-slam:noetic .   # ROS 1
-docker build -f docker/Dockerfile.humble -t skid-slam:humble .   # ROS 2
-
 xhost +local:docker
+
+# ROS 1
+docker build -f docker/Dockerfile.noetic -t skid-slam:noetic .
+docker run -it --rm --net=host -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/bags:/data skid-slam:noetic
+
+# ROS 2
+docker build -f docker/Dockerfile.humble -t skid-slam:humble .
 docker run -it --rm --net=host -e DISPLAY=$DISPLAY \
   -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/bags:/data skid-slam:humble
 ```
