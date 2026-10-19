@@ -4,7 +4,6 @@ skid_slam:
   pointCloudTopic: "ouster/points"               # Point cloud data
   imuTopic: "ouster/imu"                         # IMU data
   odomTopic: "odometry/imu"                   # IMU pre-preintegration odometry, same frequency as IMU
-  gpsTopic: "odometry/gpsz"                   # GPS odometry (unused unless provided)
 
   # Frames
   lidarFrame: "base_link"
@@ -12,11 +11,8 @@ skid_slam:
   odometryFrame: "odom"
   mapFrame: "map"
 
-  # GPS Settings
-  useImuHeadingInitialization: false           # if using GPS data, set to "true"
-  useGpsElevation: false                      # if GPS elevation is bad, set to "false"
-  gpsCovThreshold: 2.0                        # m^2, threshold for using GPS data
-  poseCovThreshold: 25.0                      # m^2, threshold for using GPS data
+  # Initialization
+  useImuHeadingInitialization: false           # initialize yaw from the IMU orientation
   
   # Export settings (written on shutdown to <saveDirectory>/<robot_id>/)
   saveMap: false                              # downsampled global map (.pcd)

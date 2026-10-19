@@ -8,7 +8,6 @@
 #include <std_msgs/Float64MultiArray.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <sensor_msgs/NavSatFix.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
@@ -76,7 +75,6 @@ public:
     string pointCloudTopic;
     string imuTopic;
     string odomTopic;
-    string gpsTopic;
 
     //Frames
     string lidarFrame;
@@ -84,11 +82,8 @@ public:
     string odometryFrame;
     string mapFrame;
 
-    // GPS Settings
+    // Initialization
     bool useImuHeadingInitialization;
-    bool useGpsElevation;
-    float gpsCovThreshold;
-    float poseCovThreshold;
 
     // Save pcd
     bool saveMap;
@@ -172,7 +167,6 @@ public:
         nh.param<std::string>("skid_slam/pointCloudTopic", pointCloudTopic, "points_raw");
         nh.param<std::string>("skid_slam/imuTopic", imuTopic, "imu_correct");
         nh.param<std::string>("skid_slam/odomTopic", odomTopic, "odometry/imu");
-        nh.param<std::string>("skid_slam/gpsTopic", gpsTopic, "odometry/gps");
 
         nh.param<std::string>("skid_slam/lidarFrame", lidarFrame, "base_link");
         nh.param<std::string>("skid_slam/baselinkFrame", baselinkFrame, "base_link");
@@ -180,9 +174,6 @@ public:
         nh.param<std::string>("skid_slam/mapFrame", mapFrame, "map");
 
         nh.param<bool>("skid_slam/useImuHeadingInitialization", useImuHeadingInitialization, false);
-        nh.param<bool>("skid_slam/useGpsElevation", useGpsElevation, false);
-        nh.param<float>("skid_slam/gpsCovThreshold", gpsCovThreshold, 2.0);
-        nh.param<float>("skid_slam/poseCovThreshold", poseCovThreshold, 25.0);
 
         nh.param<bool>("skid_slam/saveMap", saveMap, false);
         nh.param<bool>("skid_slam/savePoses", savePoses, false);
@@ -334,15 +325,6 @@ void imuAngular2rosAngular(sensor_msgs::Imu *thisImuMsg, T *angular_x, T *angula
     *angular_x = thisImuMsg->angular_velocity.x;
     *angular_y = thisImuMsg->angular_velocity.y;
     *angular_z = thisImuMsg->angular_velocity.z;
-}
-
-
-template<typename T>
-void imuAccel2rosAccel(sensor_msgs::Imu *thisImuMsg, T *acc_x, T *acc_y, T *acc_z)
-{
-    *acc_x = thisImuMsg->linear_acceleration.x;
-    *acc_y = thisImuMsg->linear_acceleration.y;
-    *acc_z = thisImuMsg->linear_acceleration.z;
 }
 
 

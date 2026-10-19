@@ -4,7 +4,6 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/navigation/GPSFactor.h>
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/navigation/CombinedImuFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -83,17 +82,12 @@ public:
     }
 
     void FusionTransHandler(const nav_msgs::Odometry::ConstPtr& odomMsg) {
-        //receive the odometry
-//        std::cout << robot_id << ": receiving messages..." <<std::endl;
         fusionTrans[0] = odomMsg->pose.pose.position.x;
         fusionTrans[1] = odomMsg->pose.pose.position.y;
         fusionTrans[2] = odomMsg->pose.pose.position.z;
         tf::Quaternion orientation;
         tf::quaternionMsgToTF(odomMsg->pose.pose.orientation, orientation);
         tf::Matrix3x3(orientation).getRPY(fusionTrans[3], fusionTrans[4], fusionTrans[5]);
-//        std::cout<<robot_id<<" received tf: ";
-//        std::cout << fusionTrans[0] << " " << fusionTrans[1] << " " << fusionTrans[2] << " " << fusionTrans[3] << " "
-//                  << fusionTrans[4] << " " << fusionTrans[5] << std::endl;
 
         //tf
         tf::TransformBroadcaster tfMap2Odom;

@@ -6,7 +6,6 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/navigation/GPSFactor.h>
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/navigation/CombinedImuFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -21,11 +20,6 @@
 #include <filesystem>
 
 using namespace gtsam;
-
-using symbol_shorthand::X; // Pose3 (x,y,z,r,p,y)
-using symbol_shorthand::V; // Vel   (xdot,ydot,zdot)
-using symbol_shorthand::B; // Bias  (ax,ay,az,gx,gy,gz)
-using symbol_shorthand::G; // GPS pose
 
 /*
     * A point cloud type that has 6D pose info ([x,y,z,roll,pitch,yaw] intensity is time stamp)
@@ -58,10 +52,8 @@ public:
     // gtsam
     NonlinearFactorGraph gtSAMgraph;
     Values initialEstimate;
-    Values optimizedEstimate;
     ISAM2 *isam;
     Values isamCurrentEstimate;
-    Eigen::MatrixXd poseCovariance;
 
     ros::Publisher pubLaserCloudSurround;
     ros::Publisher pubLaserOdometryGlobal;
@@ -78,18 +70,12 @@ public:
 
     ros::Publisher pubLaserCloudInfo;
 
-    //publish to fusion node
-//    ros::Publisher pubCloudInfoWithPose;
-//    skid_slam::cloud_info cloudInfoWithPose;
-//    std_msgs::Header cloudHeader;
     ros::Subscriber subGlobalLoop;
     ros::Publisher pubFeatureCloud;
     pcl::PointCloud<PointType>::Ptr laserCloudSurfLastFeature; //
     pcl::PointCloud<PointType>::Ptr laserCloudCornerLastFeature; //
 
     ros::Subscriber subCloud;
-    ros::Subscriber subGPS;
-    ros::Subscriber subLoop;
 
     // inter-robot correction (odom -> map) from the distributed map-fusion node
     ros::Subscriber subOdom2Map;
@@ -97,7 +83,6 @@ public:
     bool gotOdom2map = false;
     std::mutex corrMtx;
 
-    std::deque<nav_msgs::Odometry> gpsQueue;
     skid_slam::cloud_info cloudInfo;
 
     vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
@@ -150,7 +135,6 @@ public:
     float transformTobeMapped[6];
 
     std::mutex mtx;
-    std::mutex mtxLoopInfo;
 
     bool isDegenerate = false;
     cv::Mat matP;
@@ -165,7 +149,6 @@ public:
     vector<pair<int, int>> loopIndexQueue;
     vector<gtsam::Pose3> loopPoseQueue;
     vector<gtsam::noiseModel::Diagonal::shared_ptr> loopNoiseQueue;
-    deque<std_msgs::Float64MultiArray> loopInfoVec;
 
     nav_msgs::Path globalPath;
 
@@ -188,15 +171,10 @@ public:
         pubPath                     = nh.advertise<nav_msgs::Path>(robot_id + "/skid_slam/mapping/path", 1);
 
 
-        //for fusion node
-        //for
-//        pubCloudInfoWithPose        = nh.advertise<skid_slam::cloud_info> (robot_id + "/skid_slam/mapping/cloud_info", 1);
         pubFeatureCloud = nh.advertise<sensor_msgs::PointCloud2>(robot_id + "/skid_slam/mapping/feature_cloud_global", 1);
         subGlobalLoop = nh.subscribe<skid_slam::context_info>(robot_id + "/" + fusionTopic + "/loop_info", 100, &mapOptimization::contextLoopInfoHandler, this, ros::TransportHints().tcpNoDelay());
 
         subCloud = nh.subscribe<skid_slam::cloud_info>(robot_id + "/skid_slam/feature/cloud_info", 1, &mapOptimization::laserCloudInfoHandler, this, ros::TransportHints().tcpNoDelay());
-        subGPS   = nh.subscribe<nav_msgs::Odometry> (gpsTopic, 200, &mapOptimization::gpsHandler, this, ros::TransportHints().tcpNoDelay());
-        subLoop  = nh.subscribe<std_msgs::Float64MultiArray>(robot_id + "/lio_loop/loop_closure_detection", 1, &mapOptimization::loopInfoHandler, this, ros::TransportHints().tcpNoDelay());
         // odom->map correction broadcast by the map-fusion (Distributed-SOLiD-SLAM) node
         subOdom2Map = nh.subscribe<nav_msgs::Odometry>(robot_id + "/" + fusionTopic + "/trans_map", 10, &mapOptimization::odom2mapHandler, this, ros::TransportHints().tcpNoDelay());
 
@@ -266,9 +244,6 @@ public:
     }
 
     void contextLoopInfoHandler(const skid_slam::context_infoConstPtr& msgIn){
-        //close global loop by do nothing
-//        return;
-
         if(msgIn->robotID != robot_id)
             return;
 
@@ -283,7 +258,6 @@ public:
             noiseScore;
         auto noiseBetween = gtsam::noiseModel::Diagonal::Variances(Vector6);
 
-        double start = ros::Time::now().toSec();;
         gtSAMgraph.add(BetweenFactor<Pose3>(indexFrom, indexTo, poseBetween, noiseBetween));
         isam->update(gtSAMgraph);
         isam->update();
@@ -335,11 +309,6 @@ public:
 
             publishFrames();
         }
-    }
-
-    void gpsHandler(const nav_msgs::Odometry::ConstPtr& gpsMsg)
-    {
-        gpsQueue.push_back(*gpsMsg);
     }
 
     void pointAssociateToMap(PointType const * const pi, PointType * const po)
@@ -420,19 +389,6 @@ public:
             msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
             roll, pitch, yaw);
         gotOdom2map = true;
-    }
-
-    // Keep only points within +/- halfAngleRad of the robot's forward (+x) axis,
-    // measured by horizontal azimuth in the body/lidar frame (before transform to global).
-    pcl::PointCloud<PointType>::Ptr clipByAzimuth(pcl::PointCloud<PointType>::Ptr in, float halfAngleRad)
-    {
-        pcl::PointCloud<PointType>::Ptr out(new pcl::PointCloud<PointType>());
-        out->reserve(in->size());
-        for (const auto& p : in->points) {
-            if (std::fabs(std::atan2(p.y, p.x)) <= halfAngleRad)
-                out->push_back(p);
-        }
-        return out;
     }
 
     void visualizeGlobalMapThread()
@@ -645,18 +601,6 @@ public:
         }
     }
 
-    void loopInfoHandler(const std_msgs::Float64MultiArray::ConstPtr& loopMsg)
-    {
-        std::lock_guard<std::mutex> lock(mtxLoopInfo);
-        if (loopMsg->data.size() != 2)
-            return;
-
-        loopInfoVec.push_back(*loopMsg);
-
-        while (loopInfoVec.size() > 5)
-            loopInfoVec.pop_front();
-    }
-
     void performLoopClosure()
     {
         if (cloudKeyPoses3D->points.empty() == true)
@@ -670,9 +614,8 @@ public:
         // find keys
         int loopKeyCur;
         int loopKeyPre;
-        if (detectLoopClosureExternal(&loopKeyCur, &loopKeyPre) == false)
-            if (detectLoopClosureDistance(&loopKeyCur, &loopKeyPre) == false)
-                return;
+        if (detectLoopClosureDistance(&loopKeyCur, &loopKeyPre) == false)
+            return;
 
         // extract cloud
         pcl::PointCloud<PointType>::Ptr cureKeyframeCloud(new pcl::PointCloud<PointType>());
@@ -765,60 +708,6 @@ public:
         }
 
         if (loopKeyPre == -1 || loopKeyCur == loopKeyPre)
-            return false;
-
-        *latestID = loopKeyCur;
-        *closestID = loopKeyPre;
-
-        return true;
-    }
-
-    bool detectLoopClosureExternal(int *latestID, int *closestID)
-    {
-        // this function is not used yet, please ignore it
-        int loopKeyCur = -1;
-        int loopKeyPre = -1;
-
-        std::lock_guard<std::mutex> lock(mtxLoopInfo);
-        if (loopInfoVec.empty())
-            return false;
-
-        double loopTimeCur = loopInfoVec.front().data[0];
-        double loopTimePre = loopInfoVec.front().data[1];
-        loopInfoVec.pop_front();
-
-        if (abs(loopTimeCur - loopTimePre) < historyKeyframeSearchTimeDiff)
-            return false;
-
-        int cloudSize = copy_cloudKeyPoses6D->size();
-        if (cloudSize < 2)
-            return false;
-
-        // latest key
-        loopKeyCur = cloudSize - 1;
-        for (int i = cloudSize - 1; i >= 0; --i)
-        {
-            if (copy_cloudKeyPoses6D->points[i].time >= loopTimeCur)
-                loopKeyCur = round(copy_cloudKeyPoses6D->points[i].intensity);
-            else
-                break;
-        }
-
-        // previous key
-        loopKeyPre = 0;
-        for (int i = 0; i < cloudSize; ++i)
-        {
-            if (copy_cloudKeyPoses6D->points[i].time <= loopTimePre)
-                loopKeyPre = round(copy_cloudKeyPoses6D->points[i].intensity);
-            else
-                break;
-        }
-
-        if (loopKeyCur == loopKeyPre)
-            return false;
-
-        auto it = loopIndexContainer.find(loopKeyCur);
-        if (it != loopIndexContainer.end())
             return false;
 
         *latestID = loopKeyCur;
@@ -975,21 +864,6 @@ public:
         }
     }
 
-    void extractForLoopClosure()
-    {
-        pcl::PointCloud<PointType>::Ptr cloudToExtract(new pcl::PointCloud<PointType>());
-        int numPoses = cloudKeyPoses3D->size();
-        for (int i = numPoses-1; i >= 0; --i)
-        {
-            if ((int)cloudToExtract->size() <= surroundingKeyframeSize)
-                cloudToExtract->push_back(cloudKeyPoses3D->points[i]);
-            else
-                break;
-        }
-
-        extractCloud(cloudToExtract);
-    }
-
     void extractNearby()
     {
         pcl::PointCloud<PointType>::Ptr surroundingKeyPoses(new pcl::PointCloud<PointType>());
@@ -1068,13 +942,6 @@ public:
         if (cloudKeyPoses3D->points.empty() == true)
             return; 
         
-        // if (loopClosureEnableFlag == true)
-        // {
-        //     extractForLoopClosure();    
-        // } else {
-        //     extractNearby();
-        // }
-
         extractNearby();
     }
 
@@ -1521,86 +1388,6 @@ public:
         }
     }
 
-    void addGPSFactor()
-    {
-        if (gpsQueue.empty())
-            return;
-
-        // wait for system initialized and settles down
-        if (cloudKeyPoses3D->points.empty())
-            return;
-        else
-        {
-            if (pointDistance(cloudKeyPoses3D->front(), cloudKeyPoses3D->back()) < 5.0)
-                return;
-        }
-
-        // pose covariance small, no need to correct
-        if (poseCovariance(3,3) < poseCovThreshold && poseCovariance(4,4) < poseCovThreshold)
-            return;
-
-        // last gps position
-        static PointType lastGPSPoint;
-
-        while (!gpsQueue.empty())
-        {
-            if (gpsQueue.front().header.stamp.toSec() < timeLaserInfoCur - 0.2)
-            {
-                // message too old
-                gpsQueue.pop_front();
-            }
-            else if (gpsQueue.front().header.stamp.toSec() > timeLaserInfoCur + 0.2)
-            {
-                // message too new
-                break;
-            }
-            else
-            {
-                nav_msgs::Odometry thisGPS = gpsQueue.front();
-                gpsQueue.pop_front();
-
-                // GPS too noisy, skip
-                float noise_x = thisGPS.pose.covariance[0];
-                float noise_y = thisGPS.pose.covariance[7];
-                float noise_z = thisGPS.pose.covariance[14];
-                if (noise_x > gpsCovThreshold || noise_y > gpsCovThreshold)
-                    continue;
-
-                float gps_x = thisGPS.pose.pose.position.x;
-                float gps_y = thisGPS.pose.pose.position.y;
-                float gps_z = thisGPS.pose.pose.position.z;
-                if (!useGpsElevation)
-                {
-                    gps_z = transformTobeMapped[5];
-                    noise_z = 0.01;
-                }
-
-                // GPS not properly initialized (0,0,0)
-                if (abs(gps_x) < 1e-6 && abs(gps_y) < 1e-6)
-                    continue;
-
-                // Add GPS every a few meters
-                PointType curGPSPoint;
-                curGPSPoint.x = gps_x;
-                curGPSPoint.y = gps_y;
-                curGPSPoint.z = gps_z;
-                if (pointDistance(curGPSPoint, lastGPSPoint) < 5.0)
-                    continue;
-                else
-                    lastGPSPoint = curGPSPoint;
-
-                gtsam::Vector Vector3(3);
-                Vector3 << max(noise_x, 1.0f), max(noise_y, 1.0f), max(noise_z, 1.0f);
-                noiseModel::Diagonal::shared_ptr gps_noise = noiseModel::Diagonal::Variances(Vector3);
-                gtsam::GPSFactor gps_factor(cloudKeyPoses3D->size(), gtsam::Point3(gps_x, gps_y, gps_z), gps_noise);
-                gtSAMgraph.add(gps_factor);
-
-                aLoopIsClosed = true;
-                break;
-            }
-        }
-    }
-
     void addLoopFactor()
     {
         if (loopIndexQueue.empty())
@@ -1629,14 +1416,8 @@ public:
         // odom factor
         addOdomFactor();
 
-        // gps factor
-        addGPSFactor();
-
         // loop factor
         addLoopFactor();
-
-        // cout << "****************************************************" << endl;
-        // gtSAMgraph.print("GTSAM Graph:\n");
 
         // update iSAM
         isam->update(gtSAMgraph, initialEstimate);
@@ -1663,8 +1444,6 @@ public:
         isamCurrentEstimate = isam->calculateEstimate();
 
         latestEstimate = isamCurrentEstimate.at<Pose3>(isamCurrentEstimate.size()-1);
-        // cout << "****************************************************" << endl;
-        // isamCurrentEstimate.print("Current estimate: ");
 
         thisPose3D.x = latestEstimate.translation().x();
         thisPose3D.y = latestEstimate.translation().y();
@@ -1682,10 +1461,6 @@ public:
         thisPose6D.time = timeLaserInfoCur;
         cloudKeyPoses6D->push_back(thisPose6D);
 
-        // cout << "****************************************************" << endl;
-        // cout << "Pose covariance:" << endl;
-        // cout << isam->marginalCovariance(isamCurrentEstimate.size()-1) << endl << endl;
-        poseCovariance = isam->marginalCovariance(isamCurrentEstimate.size()-1);
 
         // save updated transform
         transformTobeMapped[0] = latestEstimate.rotation().roll();
@@ -1809,7 +1584,6 @@ public:
 
         //publish to fusion node
 
-//        pubCloudInfoWithPose.publish();
 
         // Publish TF
         static tf::TransformBroadcaster br;

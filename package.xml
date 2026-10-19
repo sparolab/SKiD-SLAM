@@ -28,5 +28,4 @@
   <build_export_depend>message_runtime</build_export_depend>
   <exec_depend>message_runtime</exec_depend>
   <exec_depend>rviz</exec_depend>
-  <exec_depend>rviz_animated_view_controller</exec_depend>
 </package>

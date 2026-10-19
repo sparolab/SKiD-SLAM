@@ -8,20 +8,40 @@
   <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <br />
   <br />
+  <h3>SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM<br/>for Planetary Missions with Field Deployments at Analog Sites</h3>
+  <p><strong>IEEE Transactions on Field Robotics (T-FR), 2026</strong></p>
+  <p>
+    <a href="https://scholar.google.com/citations?user=t5UEbooAAAAJ&hl=ko">Hogyun Kim</a><sup>1</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=2bvLmqQAAAAJ&hl=ko">Juwon Kim</a><sup>1</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=dE64iRYAAAAJ&hl=ko">Dongjin Cho</a><sup>1</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=wL8VdUMAAAAJ&hl=ko">Jiwon Choi</a><sup>1</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=kiBTkqMAAAAJ&hl=ko">Geonmo Yang</a><sup>1</sup>,&nbsp;
+    Seokhwan Jeong<sup>1</sup>,&nbsp;
+    Jiyun Lee<sup>1</sup>,&nbsp;
+    Miryeong Park<sup>1</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=S1A3nbIAAAAJ&hl=ko">Hyungtae Lim</a><sup>2*</sup>,&nbsp;
+    <a href="https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko">Younggun Cho</a><sup>1*†</sup>
+  </p>
+  <p>
+    <sup>1</sup><a href="https://sparolab.github.io/">Spatial AI and Robotics (SPARO) Lab</a>, Inha University&nbsp;&nbsp;&nbsp;
+    <sup>2</sup>LIDS, MIT
+    <br/>
+    <sub><sup>*</sup>Corresponding authors&nbsp;&nbsp;&nbsp;<sup>†</sup>Principal investigator</sub>
+  </p>
+  <br />
   <p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM" width="95%" /></p>
   <p><strong><em>Robust, lightweight, and distributed multi-robot LiDAR SLAM.</em></strong></p>
-
-**[IEEE T-FR 2026]** SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites
-
-Hogyun Kim<sup>1</sup>, Juwon Kim<sup>1</sup>, Dongjin Cho<sup>1</sup>, Jiwon Choi<sup>1</sup>, Geonmo Yang<sup>1</sup>, Seokhwan Jeong<sup>1</sup>, Jiyun Lee<sup>1</sup>, Miryeong Park<sup>1</sup>, Hyungtae Lim<sup>2*</sup>, Younggun Cho<sup>1*†</sup>
-
-<sup>1</sup>[Spatial AI and Robotics (SPARO) Lab](https://sparolab.github.io/), Inha University &nbsp; <sup>2</sup>LIDS, MIT &nbsp; <sup>*</sup>Corresponding authors &nbsp; <sup>†</sup>PI
 </div>
 
 ______________________________________________________________________
 
 **SKiD-SLAM** = **S**OLiD + **Ki**SS-Matcher + **D**istributed SLAM.
 Each robot runs its own LiDAR-inertial odometry. The robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors and find inter-robot loops with coarse-to-fine registration ([KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp)). Pairwise consistency maximization rejects outlier loops before the maps are fused.
+
+## :floppy_disk: Datasets
+
+Multi-robot bags used in the paper (`majang.bag`, `planetary_analog.bag`) are available on **[Dropbox](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0)**.
+Each bag holds `/<robot>/ouster/points` and an IMU topic for every robot, and runs with the matching config in [`config/params/`](config/params).
 
 ## :newspaper: News
 * [25.04.29] Our paper has been selected for a spotlight talk!
@@ -85,16 +105,6 @@ rosbag play --clock majang.bag
 | `save_dir` | `/tmp/skid_slam` | Results go to `<save_dir>/<robot>/` on shutdown |
 
 Topics are namespaced per robot, e.g. `/jackal0/ouster/points` and `/jackal0/imu/data`.
-
-### Record a video
-
-[`scripts/run_bag.sh`](scripts/run_bag.sh) plays a bag, saves every result, and can render RViz headlessly (Xvfb + ffmpeg, both included in the Docker image) into an mp4:
-
-```bash
-scripts/run_bag.sh -c majang -b /data/majang.bag -o /data/results -v -s 4
-```
-
-`-s` sets the playback speed-up of the video. The camera slowly orbits the robots and zooms to keep all of them in view.
 
 ______________________________________________________________________
 

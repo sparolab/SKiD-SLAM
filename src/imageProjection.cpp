@@ -49,7 +49,6 @@ private:
     std::mutex odoLock;
 
     ros::Subscriber subLaserCloud;
-    ros::Publisher  pubLaserCloud;
     
     ros::Publisher pubExtractedCloud;
     ros::Publisher pubLaserCloudInfo;
@@ -154,23 +153,6 @@ public:
 
         std::lock_guard<std::mutex> lock1(imuLock);
         imuQueue.push_back(thisImu);
-
-        // debug IMU data
-        // cout << std::setprecision(6);
-        // cout << "IMU acc: " << endl;
-        // cout << "x: " << thisImu.linear_acceleration.x << 
-        //       ", y: " << thisImu.linear_acceleration.y << 
-        //       ", z: " << thisImu.linear_acceleration.z << endl;
-        // cout << "IMU gyro: " << endl;
-        // cout << "x: " << thisImu.angular_velocity.x << 
-        //       ", y: " << thisImu.angular_velocity.y << 
-        //       ", z: " << thisImu.angular_velocity.z << endl;
-        // double imuRoll, imuPitch, imuYaw;
-        // tf::Quaternion orientation;
-        // tf::quaternionMsgToTF(thisImu.orientation, orientation);
-        // tf::Matrix3x3(orientation).getRPY(imuRoll, imuPitch, imuYaw);
-        // cout << "IMU roll pitch yaw: " << endl;
-        // cout << "roll: " << imuRoll << ", pitch: " << imuPitch << ", yaw: " << imuYaw << endl << endl;
     }
 
     void odometryHandler(const nav_msgs::Odometry::ConstPtr& odometryMsg)
@@ -478,16 +460,7 @@ public:
     {
         *posXCur = 0; *posYCur = 0; *posZCur = 0;
 
-        // If the sensor moves relatively slow, like walking speed, positional deskew seems to have little benefits. Thus code below is commented.
-
-        // if (cloudInfo.odomAvailable == false || odomDeskewFlag == false)
-        //     return;
-
-        // float ratio = relTime / (timeScanEnd - timeScanCur);
-
-        // *posXCur = ratio * odomIncreX;
-        // *posYCur = ratio * odomIncreY;
-        // *posZCur = ratio * odomIncreZ;
+        // Positional deskew is disabled: for slow platforms it brings little benefit.
     }
 
     PointType deskewPoint(PointType *point, double relTime)
