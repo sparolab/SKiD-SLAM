@@ -93,12 +93,7 @@ ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play majang --clock
 ```
 
-Launch arguments:
-
-- `config:=majang` — dataset config (`majang` or `planetary_analog`)
-- `rviz:=true` — open RViz
-- `save_poses` · `save_map` · `save_whole_map` · `save_scans` `:=false` — save trajectories (TUM), the feature map, the dense map, keyframe scans
-- `save_dir:=/tmp/skid_slam` — output directory
+See the launch guides for all arguments and outputs: [ROS 1](ros1/launch/GUIDE.md) · [ROS 2](ros2/launch/GUIDE.md).
 
 ______________________________________________________________________
 
