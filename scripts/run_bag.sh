@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs SKiD-SLAM on a multi-robot bag, saves the results and (optionally) records an RViz video.
 #
-#   scripts/run_bag.sh -c majang -b /data/majang_multi.bag -o /results [-v] [-s 4]
+#   scripts/run_bag.sh -c majang -b /data/majang.bag -o /results [-v] [-s 4]
 #
 #   -c  config name in config/params/ (required)
 #   -b  rosbag with /<robot>/... topics (required)

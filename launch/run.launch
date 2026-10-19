@@ -1,6 +1,6 @@
 <launch>
-    <!-- Dataset config: one of config/params/*.yaml (offroad, tunnel, graco, moon, park, majang, steam_legged) -->
-    <arg name="config" default="steam_legged"/>
+    <!-- Dataset config: one of config/params/*.yaml (majang, planetary_analog) -->
+    <arg name="config" default="majang"/>
     <arg name="params" default="$(find skid_slam)/config/params/$(arg config).yaml"/>
     <arg name="rviz"   default="true"/>
     <arg name="use_sim_time" default="true"/>

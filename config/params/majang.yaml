@@ -1,4 +1,4 @@
-# Majang (rover)
+# Majang (majang.bag)
 skid_slam:
   # Topics
   pointCloudTopic: "ouster/points"               # Point cloud data

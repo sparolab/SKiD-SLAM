@@ -69,13 +69,13 @@ ______________________________________________________________________
 ## :rocket: Run
 
 ```bash
-roslaunch skid_slam run.launch config:=tunnel
-rosbag play --clock tunnel_multi.bag
+roslaunch skid_slam run.launch config:=majang
+rosbag play --clock majang.bag
 ```
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `config` | `steam_legged` | Dataset config in [`config/params/`](config/params) |
+| `config` | `majang` | Dataset config in [`config/params/`](config/params): `majang`, `planetary_analog` |
 | `robot0..2` | `jackal0..2` | Robot namespaces. `robot0` anchors the global map |
 | `rviz` | `true` | Launch RViz |
 | `save_poses` | `false` | Keyframe poses in the global frame (TUM format) |
@@ -91,7 +91,7 @@ Topics are namespaced per robot, e.g. `/jackal0/ouster/points` and `/jackal0/imu
 [`scripts/run_bag.sh`](scripts/run_bag.sh) plays a bag, saves every result, and can render RViz headlessly (Xvfb + ffmpeg, both included in the Docker image) into an mp4:
 
 ```bash
-scripts/run_bag.sh -c majang -b /data/majang_multi.bag -o /data/results -v -s 4
+scripts/run_bag.sh -c majang -b /data/majang.bag -o /data/results -v -s 4
 ```
 
 `-s` sets the playback speed-up of the video. The camera slowly orbits the robots and zooms to keep all of them in view.
