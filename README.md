@@ -9,7 +9,7 @@
   <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <br />
-  <img src="assets/pipeline.png" alt="SKiD-SLAM" width="95%" />
+  <img src="assets/skid_slam.gif" alt="SKiD-SLAM on the Majang (left) and planetary analog (right) datasets" width="95%" />
   <br />
   <br />
   <p>
@@ -22,6 +22,8 @@ ______________________________________________________________________
 
 **SKiD-SLAM** = **S**OLiD + **Ki**SS-Matcher + **D**istributed SLAM.
 Each robot runs its own LiDAR-inertial odometry. The robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors and find inter-robot loops with coarse-to-fine registration ([KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp)). Pairwise consistency maximization rejects outlier loops before the maps are fused.
+
+<p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM pipeline" width="95%" /></p>
 
 ## :floppy_disk: Datasets
 
