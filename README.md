@@ -93,15 +93,12 @@ ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play majang --clock
 ```
 
-| Argument | Default | Description |
-| --- | --- | --- |
-| `config` | `majang` | `majang` or `planetary_analog` |
-| `rviz` | `true` | Launch RViz |
-| `save_poses` | `false` | Save trajectories (TUM) |
-| `save_map` | `false` | Save the feature map |
-| `save_whole_map` | `false` | Save the dense map |
-| `save_scans` | `false` | Save keyframe scans |
-| `save_dir` | `/tmp/skid_slam` | Output directory |
+Launch arguments:
+
+- `config:=majang` — dataset config (`majang` or `planetary_analog`)
+- `rviz:=true` — open RViz
+- `save_poses` · `save_map` · `save_whole_map` · `save_scans` `:=false` — save trajectories (TUM), the feature map, the dense map, keyframe scans
+- `save_dir:=/tmp/skid_slam` — output directory
 
 ______________________________________________________________________
 
