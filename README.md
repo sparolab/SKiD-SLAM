@@ -23,7 +23,6 @@ Each robot runs its own LiDAR-inertial odometry. The robots share compact [SOLiD
 ## :floppy_disk: Datasets
 
 Multi-robot bags used in the paper (`majang.bag`, `planetary_analog.bag`) are available on **[Dropbox](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0)**.
-Each bag holds `/<robot>/ouster/points` and an IMU topic for every robot, and runs with the matching config in [`config/params/`](config/params).
 
 ______________________________________________________________________
 
@@ -36,11 +35,7 @@ git clone https://github.com/sparolab/SKiD-SLAM.git
 cd SKiD-SLAM
 git submodule update --init
 docker build -f docker/Dockerfile -t skid-slam .
-```
 
-Run it with your data mounted (X11 forwarding is only needed for RViz):
-
-```bash
 xhost +local:docker
 docker run -it --rm --net=host -e DISPLAY=$DISPLAY \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -60,8 +55,6 @@ cd SKiD-SLAM && git submodule update --init
 cd ~/catkin_ws && catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
 
-All third-party libraries ([SOLiD](https://github.com/sparolab/SOLiD), [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher), [small_gicp](https://github.com/koide3/small_gicp)) are pulled in as git submodules and built together with the package. Nothing has to be installed system-wide.
-
 ______________________________________________________________________
 
 ## :rocket: Run
@@ -73,34 +66,19 @@ rosbag play --clock majang.bag
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `config` | `majang` | Dataset config in [`config/params/`](config/params): `majang`, `planetary_analog` |
-| `robot0..2` | `jackal0..2` | Robot namespaces. `robot0` anchors the global map |
+| `config` | `majang` | `majang` or `planetary_analog` |
 | `rviz` | `true` | Launch RViz |
-| `save_poses` | `false` | Keyframe poses in the global frame (TUM format) |
-| `save_map` | `false` | Downsampled feature map in the global frame |
-| `save_whole_map` | `false` | Raw scans stacked at the global poses (`<robot>_whole_map.pcd`) |
-| `save_scans` | `false` | Raw keyframe scans in the body frame (`scans/%06d.pcd`) |
-| `save_dir` | `/tmp/skid_slam` | Results go to `<save_dir>/<robot>/` on shutdown |
-
-Topics are namespaced per robot, e.g. `/jackal0/ouster/points` and `/jackal0/imu/data`.
+| `save_poses` | `false` | Save trajectories (TUM) |
+| `save_map` | `false` | Save the feature map |
+| `save_whole_map` | `false` | Save the dense map |
+| `save_scans` | `false` | Save keyframe scans |
+| `save_dir` | `/tmp/skid_slam` | Output directory |
 
 ______________________________________________________________________
 
 ## :gear: Configuration
 
-Each file in [`config/params/`](config/params) holds the full parameter set for one dataset:
-
-- `skid_slam:` — single-robot LiDAR-inertial odometry: sensor, IMU, extrinsics, and export options.
-- `mapfusion:` — the multi-robot part:
-  - `solid` — descriptor
-  - `retrieval` — candidate search and the `loop_threshold`
-  - `registration` — KISS-Matcher and small_gicp settings, plus the `fitness_threshold`
-  - `pcm` — outlier rejection
-
-All parameters are read at runtime, so tuning never requires a rebuild. To use your own robot, copy the closest config, then set the topics, `N_SCAN`/`Horizon_SCAN`, and the IMU extrinsics.
-
-> \[!NOTE\]
-> Robot names must end with a single digit (`jackal0`, `jackal1`, ...). The digit is used as the robot index, and robot `0` defines the global frame.
+All parameters live in [`config/params/`](config/params) and are read at runtime, so tuning never requires a rebuild.
 
 ______________________________________________________________________
 
