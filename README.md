@@ -111,3 +111,7 @@ We envision SKiD-SLAM as a community-driven project and love to see it grow thro
 ## Acknowledgements
 
 SKiD-SLAM builds on [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM), [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM), [SOLiD](https://github.com/sparolab/SOLiD), [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher), and [small_gicp](https://github.com/koide3/small_gicp). We thank the authors for open-sourcing their work.
+
+## Special Thanks
+
+We sincerely thank **Yewei Huang** for open-sourcing [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM). Its distributed map-fusion framework is the foundation that SKiD-SLAM is built on.
