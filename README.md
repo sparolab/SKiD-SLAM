@@ -97,6 +97,18 @@ See the launch guides for all arguments and outputs: [ROS 1](ros1/launch/GUIDE.m
 
 ______________________________________________________________________
 
+## :robot: Run with your agent
+
+Open [Claude Code](https://claude.com/claude-code) or [Codex](https://openai.com/codex/) in an empty folder and paste:
+
+```text
+Clone https://github.com/sparolab/SKiD-SLAM, read its AGENTS.md, and follow it to build SKiD-SLAM and run it on the majang dataset on this machine. Ask me what you need along the way.
+```
+
+The agent follows [`AGENTS.md`](AGENTS.md): it builds SKiD-SLAM, prepares the data, runs it, and checks the results.
+
+______________________________________________________________________
+
 ## :gear: Configuration
 
 All parameters are read at runtime from one YAML file per dataset. See the configuration guides: [ROS 1](ros1/config/GUIDE.md) · [ROS 2](ros2/config/GUIDE.md).
