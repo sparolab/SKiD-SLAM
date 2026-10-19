@@ -6,11 +6,12 @@
   <a href="#docker"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" /></a>
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/project-page-blue" /></a>
   <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
+  <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <br />
   <br />
   <h3>SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM<br/>for Planetary Missions with Field Deployments at Analog Sites</h3>
   <p><strong>IEEE Transactions on Field Robotics (T-FR), 2026</strong></p>
-  <p>
+  <p><sub>
     <a href="https://scholar.google.com/citations?user=t5UEbooAAAAJ&hl=ko">Hogyun Kim</a><sup>1</sup>,&nbsp;
     <a href="https://scholar.google.com/citations?user=2bvLmqQAAAAJ&hl=ko">Juwon Kim</a><sup>1</sup>,&nbsp;
     <a href="https://scholar.google.com/citations?user=dE64iRYAAAAJ&hl=ko">Dongjin Cho</a><sup>1</sup>,&nbsp;
@@ -20,14 +21,14 @@
     Jiyun Lee<sup>1</sup>,&nbsp;
     Miryeong Park<sup>1</sup>,&nbsp;
     <a href="https://scholar.google.com/citations?user=S1A3nbIAAAAJ&hl=ko">Hyungtae Lim</a><sup>2*</sup>,&nbsp;
-    <a href="https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko">Younggun Cho</a><sup>1*†</sup>
-  </p>
-  <p>
+    <a href="https://scholar.google.com/citations?user=W5MOKWIAAAAJ&hl=ko">Younggun Cho</a><sup>1*</sup>
+  </sub></p>
+  <p><sub>
     <sup>1</sup><a href="https://sparolab.github.io/">Spatial AI and Robotics (SPARO) Lab</a>, Inha University&nbsp;&nbsp;&nbsp;
     <sup>2</sup>LIDS, MIT
     <br/>
-    <sub><sup>*</sup>Corresponding authors&nbsp;&nbsp;&nbsp;<sup>†</sup>Principal investigator</sub>
-  </p>
+    <sup>*</sup>Corresponding authors
+  </sub></p>
   <br />
   <p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM" width="95%" /></p>
   <p><strong><em>Robust, lightweight, and distributed multi-robot LiDAR SLAM.</em></strong></p>
