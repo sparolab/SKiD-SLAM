@@ -1,0 +1,25 @@
+<launch>
+    <!-- One robot: LiDAR-inertial odometry (LIO-SAM based) + inter-robot map fusion -->
+    <arg name="robot"/>                          <!-- robot name, must end with a digit (e.g. jackal0) -->
+    <arg name="peers"/>                          <!-- other robots, e.g. "[jackal1, jackal2]" -->
+    <arg name="project" default="skid_slam"/>
+
+    <node pkg="$(arg project)" type="$(arg project)_imuPreintegration" name="$(arg project)_imuPreintegration_$(arg robot)" output="screen" respawn="true">
+        <param name="robot_id" value="$(arg robot)"/>
+    </node>
+    <node pkg="$(arg project)" type="$(arg project)_imageProjection"   name="$(arg project)_imageProjection_$(arg robot)"   output="screen" respawn="true">
+        <param name="robot_id" value="$(arg robot)"/>
+    </node>
+    <node pkg="$(arg project)" type="$(arg project)_featureExtraction" name="$(arg project)_featureExtraction_$(arg robot)" output="screen" respawn="true">
+        <param name="robot_id" value="$(arg robot)"/>
+    </node>
+    <node pkg="$(arg project)" type="$(arg project)_mapOptmization"    name="$(arg project)_mapOptmization_$(arg robot)"    output="screen" respawn="false">
+        <param name="robot_id" value="$(arg robot)"/>
+    </node>
+
+    <node pkg="$(arg project)" type="$(arg project)_mapFusion"         name="$(arg project)_mapFusion_$(arg robot)"         output="screen" respawn="false">
+        <param name="robot_id" value="$(arg robot)"/>
+        <rosparam param="peers" subst_value="true">$(arg peers)</rosparam>
+        <param name="pcm_matrix_dir" value="/tmp"/>
+    </node>
+</launch>

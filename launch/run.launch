@@ -1,0 +1,43 @@
+<launch>
+    <!-- Dataset config: one of config/params/*.yaml (offroad, tunnel, graco, moon, park, majang, steam_legged) -->
+    <arg name="config" default="steam_legged"/>
+    <arg name="params" default="$(find skid_slam)/config/params/$(arg config).yaml"/>
+    <arg name="rviz"   default="true"/>
+    <arg name="use_sim_time" default="true"/>
+
+    <!-- Results (written on shutdown to <save_dir>/<robot>/) -->
+    <arg name="save_map"   default="false"/>
+    <arg name="save_poses" default="false"/>
+    <arg name="save_scans" default="false"/>
+    <arg name="save_whole_map" default="false"/>
+    <arg name="save_dir"   default="/tmp/skid_slam"/>
+
+    <!-- Robot names must end with a digit; robot0 anchors the global map -->
+    <arg name="robot0" default="jackal0"/>
+    <arg name="robot1" default="jackal1"/>
+    <arg name="robot2" default="jackal2"/>
+
+    <param name="/use_sim_time" value="$(arg use_sim_time)"/>
+    <rosparam file="$(arg params)" command="load"/>
+    <param name="/mapfusion/robot_initial" value="$(arg robot0)"/>
+    <param name="/skid_slam/saveMap"       value="$(arg save_map)"/>
+    <param name="/skid_slam/savePoses"     value="$(arg save_poses)"/>
+    <param name="/skid_slam/saveScans"     value="$(arg save_scans)"/>
+    <param name="/skid_slam/saveWholeMap"  value="$(arg save_whole_map)"/>
+    <param name="/skid_slam/saveDirectory" value="$(arg save_dir)"/>
+
+    <include file="$(find skid_slam)/launch/include/robot.launch">
+        <arg name="robot" value="$(arg robot0)"/>
+        <arg name="peers" value="[$(arg robot1), $(arg robot2)]"/>
+    </include>
+    <include file="$(find skid_slam)/launch/include/robot.launch">
+        <arg name="robot" value="$(arg robot1)"/>
+        <arg name="peers" value="[$(arg robot0), $(arg robot2)]"/>
+    </include>
+    <include file="$(find skid_slam)/launch/include/robot.launch">
+        <arg name="robot" value="$(arg robot2)"/>
+        <arg name="peers" value="[$(arg robot0), $(arg robot1)]"/>
+    </include>
+
+    <node if="$(arg rviz)" pkg="rviz" type="rviz" name="skid_slam_rviz" args="-d $(find skid_slam)/config/rviz/skid_slam.rviz"/>
+</launch>

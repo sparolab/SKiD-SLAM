@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>skid_slam</name>
+  <version>1.0.0</version>
+  <description>SKiD-SLAM: Robust, lightweight, and distributed multi-robot LiDAR SLAM</description>
+
+  <maintainer email="hg.kim@inha.edu">Hogyun Kim</maintainer>
+  <license>BSD-3-Clause</license>
+  <author>Hogyun Kim</author>
+  <url type="website">https://sparolab.github.io/research/skid_slam/</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>tf</depend>
+  <depend>cv_bridge</depend>
+  <depend>pcl_conversions</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>libpcl-all-dev</depend>
+  <depend>gtsam</depend>
+
+  <build_depend>message_generation</build_depend>
+  <build_export_depend>message_runtime</build_export_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>rviz</exec_depend>
+  <exec_depend>rviz_animated_view_controller</exec_depend>
+</package>

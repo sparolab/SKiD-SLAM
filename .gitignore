@@ -1,1 +1,7 @@
+build/
+devel/
+.vscode/
+*.pcd
 datasets/
+__pycache__/
+*.pyc
