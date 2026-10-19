@@ -99,7 +99,7 @@ ______________________________________________________________________
 
 ## :gear: Configuration
 
-All parameters live in [`ros1/config/params/`](ros1/config/params) and [`ros2/config/params/`](ros2/config/params) and are read at runtime, so tuning never requires a rebuild.
+All parameters are read at runtime from one YAML file per dataset. See the configuration guides: [ROS 1](ros1/config/GUIDE.md) · [ROS 2](ros2/config/GUIDE.md).
 
 ______________________________________________________________________
 
