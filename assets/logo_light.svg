@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="150" viewBox="0 -8 760 158">
+  <g transform="translate(8,34) scale(1.05)">
+    <rect x="0" y="22" width="52" height="18" rx="5" fill="#3F51B5"/>
+    <rect x="22" y="8" width="5" height="15" fill="#3F51B5"/>
+    <rect x="15" y="0" width="19" height="10" rx="3" fill="#3F51B5"/>
+    <rect x="17" y="3" width="15" height="2.5" rx="1" fill="#ffffff"/>
+    <circle cx="11" cy="44" r="8" fill="#3F51B5"/><circle cx="11" cy="44" r="3" fill="#ffffff"/>
+    <circle cx="41" cy="44" r="8" fill="#3F51B5"/><circle cx="41" cy="44" r="3" fill="#ffffff"/>
+    <path d="M13 -4 Q24.5 -14 36 -4" fill="none" stroke="#3F51B5" stroke-width="2.2" stroke-linecap="round" opacity="0.55"/>
+    <path d="M7 -9 Q24.5 -24 42 -9" fill="none" stroke="#3F51B5" stroke-width="2.2" stroke-linecap="round" opacity="0.3"/>
+  </g>
+  <g transform="translate(70,50) scale(0.95)">
+    <rect x="0" y="22" width="52" height="18" rx="5" fill="#D81B60"/>
+    <rect x="22" y="8" width="5" height="15" fill="#D81B60"/>
+    <rect x="15" y="0" width="19" height="10" rx="3" fill="#D81B60"/>
+    <rect x="17" y="3" width="15" height="2.5" rx="1" fill="#ffffff"/>
+    <circle cx="11" cy="44" r="8" fill="#D81B60"/><circle cx="11" cy="44" r="3" fill="#ffffff"/>
+    <circle cx="41" cy="44" r="8" fill="#D81B60"/><circle cx="41" cy="44" r="3" fill="#ffffff"/>
+    <path d="M13 -4 Q24.5 -14 36 -4" fill="none" stroke="#D81B60" stroke-width="2.2" stroke-linecap="round" opacity="0.55"/>
+    <path d="M7 -9 Q24.5 -24 42 -9" fill="none" stroke="#D81B60" stroke-width="2.2" stroke-linecap="round" opacity="0.3"/>
+  </g>
+  <g transform="translate(126,66) scale(0.85)">
+    <rect x="0" y="22" width="52" height="18" rx="5" fill="#00897B"/>
+    <rect x="22" y="8" width="5" height="15" fill="#00897B"/>
+    <rect x="15" y="0" width="19" height="10" rx="3" fill="#00897B"/>
+    <rect x="17" y="3" width="15" height="2.5" rx="1" fill="#ffffff"/>
+    <circle cx="11" cy="44" r="8" fill="#00897B"/><circle cx="11" cy="44" r="3" fill="#ffffff"/>
+    <circle cx="41" cy="44" r="8" fill="#00897B"/><circle cx="41" cy="44" r="3" fill="#ffffff"/>
+    <path d="M13 -4 Q24.5 -14 36 -4" fill="none" stroke="#00897B" stroke-width="2.2" stroke-linecap="round" opacity="0.55"/>
+    <path d="M7 -9 Q24.5 -24 42 -9" fill="none" stroke="#00897B" stroke-width="2.2" stroke-linecap="round" opacity="0.3"/>
+  </g>
+  <text x="205" y="88" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="-1" fill="#1f2328"><tspan fill="#3F51B5">S</tspan><tspan fill="#D81B60">Ki</tspan><tspan fill="#00897B">D</tspan>-SLAM</text>
+  <text x="208" y="126" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="21" font-weight="500" fill="#59636e"><tspan fill="#3F51B5" font-weight="800">S</tspan>OLiD  +  <tspan fill="#D81B60" font-weight="800">Ki</tspan>SS-Matcher  +  <tspan fill="#00897B" font-weight="800">D</tspan>istributed SLAM</text>
+</svg>

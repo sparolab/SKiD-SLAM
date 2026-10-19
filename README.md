@@ -1,5 +1,9 @@
 <div align="center">
-  <h1>SKiD-SLAM</h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo_dark.svg" />
+    <img src="assets/logo_light.svg" alt="SKiD-SLAM: SOLiD + KiSS-Matcher + Distributed SLAM" width="560" />
+  </picture>
+  <br />
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/-C++-blue?logo=cplusplus" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS2-Humble-blue" /></a>
@@ -10,8 +14,6 @@
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <br />
   <img src="assets/skid_slam.gif" alt="SKiD-SLAM on the Majang (left) and planetary analog (right) datasets" width="95%" />
-  <br />
-  <br />
   <p>
     <strong>[IEEE T-FR 2026] SKiD-SLAM: Resource-Aware Distributed Multi-Robot<br />
     LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites</strong>
@@ -20,8 +22,13 @@
 
 ______________________________________________________________________
 
-**SKiD-SLAM** = **S**OLiD + **Ki**SS-Matcher + **D**istributed SLAM.
-Each robot runs its own LiDAR-inertial odometry. The robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors and find inter-robot loops with coarse-to-fine registration ([KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp)). Pairwise consistency maximization rejects outlier loops before the maps are fused.
+Each robot maps on its own, and the maps merge into one as soon as the robots recognize each other:
+
+- :satellite: **Odometry**: each robot runs LiDAR-inertial odometry (e.g., [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM)).
+- :mag: **Place recognition**: robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors.
+- :jigsaw: **Registration**: candidate loops are aligned coarse-to-fine, [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp).
+- :shield: **Outlier rejection**: pairwise consistency maximization (PCM) keeps only mutually consistent loops.
+- :world_map: **Map fusion**: the inter-robot transforms are optimized and every map snaps into a common frame.
 
 <p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM pipeline" width="95%" /></p>
 
