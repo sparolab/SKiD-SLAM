@@ -28,41 +28,11 @@ find_package(OpenCV REQUIRED QUIET)
 find_package(GTSAM REQUIRED QUIET)
 find_package(Eigen3 REQUIRED)
 
-#################
-## Third party ##
-#################
-# Git submodules: run `git submodule update --init` if these are missing.
-foreach(_dep SOLiD KISS-Matcher small_gicp)
-  if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/${_dep}/README.md)
-    message(FATAL_ERROR "thirdparty/${_dep} is empty. Run: git submodule update --init")
-  endif()
-endforeach()
-
-# SOLiD: place recognition descriptor (sparolab/SOLiD, branch `test`)
-set(BUILD_SOLID_VERIFY OFF CACHE BOOL "" FORCE)
-add_subdirectory(thirdparty/SOLiD/cpp EXCLUDE_FROM_ALL)
-
-# KISS-Matcher: global registration (MIT-SPARK/KISS-Matcher)
-# Use the system TBB (libtbb-dev): the oneTBB it would otherwise download clashes with GCC 9's <execution>.
-set(USE_SYSTEM_TBB ON CACHE BOOL "" FORCE)
-add_subdirectory(thirdparty/KISS-Matcher/cpp/kiss_matcher EXCLUDE_FROM_ALL)
-
-# small_gicp: local registration (koide3/small_gicp)
-set(BUILD_HELPER ON CACHE BOOL "" FORCE)
-foreach(_opt BUILD_TESTS BUILD_EXAMPLES BUILD_BENCHMARKS BUILD_PYTHON_BINDINGS)
-  set(${_opt} OFF CACHE BOOL "" FORCE)
-endforeach()
-add_subdirectory(thirdparty/small_gicp EXCLUDE_FROM_ALL)
-
-# Maximum clique solver used by PCM
-add_library(fast_max_clique_finder STATIC
-  thirdparty/fast_max-clique_finder/src/findClique.cpp
-  thirdparty/fast_max-clique_finder/src/findCliqueHeu.cpp
-  thirdparty/fast_max-clique_finder/src/utils.cpp
-  thirdparty/fast_max-clique_finder/src/graphIO.cpp
-)
-target_include_directories(fast_max_clique_finder PUBLIC thirdparty)
-target_compile_options(fast_max_clique_finder PRIVATE -w)
+##########
+## Core ##
+##########
+# ROS-independent fusion core and the third-party libraries (git submodules in ../thirdparty)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../core ${CMAKE_CURRENT_BINARY_DIR}/skid_core)
 
 ##############
 ## Messages ##
@@ -130,15 +100,7 @@ add_executable(${PROJECT_NAME}_imuPreintegration src/imuPreintegration.cpp)
 add_dependencies(${PROJECT_NAME}_imuPreintegration ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
 target_link_libraries(${PROJECT_NAME}_imuPreintegration ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} gtsam)
 
-# Inter-robot map fusion (SOLiD + KISS-Matcher + small_gicp + PCM)
+# Inter-robot map fusion (ROS wrapper around skid_core)
 add_executable(${PROJECT_NAME}_mapFusion src/mapFusion.cpp)
 add_dependencies(${PROJECT_NAME}_mapFusion ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
-target_link_libraries(${PROJECT_NAME}_mapFusion
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  gtsam
-  solid::core
-  kiss_matcher::kiss_matcher_core
-  small_gicp
-  fast_max_clique_finder
-)
+target_link_libraries(${PROJECT_NAME}_mapFusion ${catkin_LIBRARIES} ${PCL_LIBRARIES} skid_core)

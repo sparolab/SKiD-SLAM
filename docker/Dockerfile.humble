@@ -1,0 +1,26 @@
+FROM ros:humble-perception AS deps
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# GTSAM comes from the ROS 2 apt repo (ros-humble-gtsam, 4.2.x).
+# libflann/lz4/eigen/tbb are needed by the map-fusion third-party libraries.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      git wget \
+      libflann-dev liblz4-dev libeigen3-dev libtbb-dev \
+      ros-humble-gtsam \
+      ros-humble-rviz2 \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM deps
+COPY . /ros2_ws/src/SKiD-SLAM
+
+WORKDIR /ros2_ws
+# Both ros1/ and ros2/ contain a package named `skid_slam`; only build ros2/.
+# (ros2/CATKIN_IGNORE hides it from catkin; ros2/colcon.pkg pre-sets the package type so
+#  colcon-ros does not apply that marker.)
+RUN . /opt/ros/humble/setup.sh && \
+    colcon build --base-paths src/SKiD-SLAM/ros2 \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+RUN echo "source /ros2_ws/install/setup.bash" >> /root/.bashrc
+CMD ["bash"]

@@ -1,31 +1,11 @@
-//
-// SKiD-SLAM: inter-robot map fusion node.
-//
-// Pipeline per robot:
-//   1. SOLiD descriptor for every keyframe of this robot, broadcast to peers.
-//   2. Descriptor retrieval (SOLiD database) against keyframes of other robots.
-//   3. Coarse-to-fine registration: KISS-Matcher (global) -> small_gicp (local).
-//   4. Pairwise consistency maximization (PCM) to reject outlier loops.
-//   5. Pose-graph optimization of the inter-robot frame transforms (GTSAM).
-//
-// Originally based on DiSCo-SLAM (Yewei Huang, 2020), modified by Hogyun Kim.
-//
+#include "skid_slam/core/map_fusion.hpp"
 
-#include "skid_slam/cloud_info.h"
-#include "skid_slam/context_info.h"
-#include "skid_slam/utility.h"
-
-// third party
 #include <solid/database.hpp>
 #include <solid/extractor.hpp>
 #include <kiss_matcher/KISSMatcher.hpp>
 #include <small_gicp/registration/registration_helper.hpp>
 #include "fast_max-clique_finder/src/findClique.h"
 
-// ros
-#include <std_msgs/Bool.h>
-
-// gtsam
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/nonlinear/Values.h>
@@ -36,97 +16,63 @@
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 
-#include <atomic>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/kdtree/kdtree_flann.h>
+
+#include <algorithm>
 #include <cctype>
-#include <chrono>
-#include <memory>
-#include <mutex>
-#include <thread>
+#include <cmath>
+#include <cstdarg>
+#include <fstream>
+#include <limits>
+#include <sstream>
+#include <tuple>
 #include <unordered_map>
+#include <vector>
 
-struct PointXYZIRPYT
-{
-    PCL_ADD_POINT4D
-    PCL_ADD_INTENSITY;
-    float roll;
-    float pitch;
-    float yaw;
-    double time;
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-} EIGEN_ALIGN16;
+namespace skid_slam {
 
-typedef PointXYZIRPYT PointTypePose;
-
-// One keyframe shared between robots: SOLiD descriptor + feature cloud + odometry pose.
-struct Keyframe
-{
-    std::string robotname;
-    double time;
-    PointTypePose pose;  // intensity carries the keyframe index of the owner robot
-    pcl::PointCloud<PointType>::Ptr cloud;
-    solid::Descriptor descriptor;
-};
-
-// A robot this node exchanges descriptors with.
-struct Peer
-{
-    std::string id;
-    int number;
-    std::atomic<bool> link_up{true};
-    std::mutex mtx;
-    std::vector<Keyframe> queue;  // keyframes waiting to be sent to this peer
-    ros::Subscriber sub_signal;
-};
+namespace {
 
 inline gtsam::Pose3_ transformTo(const gtsam::Pose3_& x, const gtsam::Pose3_& p) {
     return gtsam::Pose3_(x, &gtsam::Pose3::transformPoseTo, p);
 }
 
-inline gtsam::Pose3 toPose3(const PointTypePose& p) {
+inline gtsam::Pose3 toPose3(const Pose6D& p) {
     return gtsam::Pose3(gtsam::Rot3::RzRyRx(p.roll, p.pitch, p.yaw), gtsam::Point3(p.x, p.y, p.z));
 }
 
 inline int robotID2Number(const std::string& robot) {
+    return robotNumber(robot);
+}
+
+}  // namespace
+
+int robotNumber(const std::string& robot)
+{
     return robot.back() - '0';
 }
 
-class MapFusion
+bool isValidRobotName(const std::string& robot)
 {
-private:
-    ros::NodeHandle nh;
+    return !robot.empty() && std::isdigit(static_cast<unsigned char>(robot.back()));
+}
 
-    ros::Subscriber _sub_laser_cloud_info;
-    ros::Subscriber _sub_context_info;
-    ros::Subscriber _sub_odom_trans;
-    ros::Subscriber _sub_loop_info_global;
-    ros::Subscriber _sub_communication_signal;
+struct MapFusion::Impl
+{
+    MapFusionConfig cfg;
+    MapFusion::Callbacks callbacks;
 
-    ros::Publisher _pub_context_info;
-    ros::Publisher _pub_loop_info;
-    ros::Publisher _pub_cloud;
-    ros::Publisher _pub_trans_odom2map;
-    ros::Publisher _pub_trans_odom2odom;
-    ros::Publisher _pub_loop_info_global;
-
-    // ---------------------------------------------------------------- parameters
+    // parameters (copied from cfg)
     std::string _robot_id;
-    std::string _robot_initial;  // robot whose frame anchors the global map
-    std::string _topic;          // namespace of the inter-robot messages
-    std::string _frame;
-    std::string _local_topic;
+    std::string _robot_initial;
     int _loop_frame_thres;
-
-    // SOLiD
     solid::Config _solid_cfg;
-
-    // retrieval
     int _num_match_candidates;
-    float _loop_thres;  // max (1 - cosine similarity) of R-SOLiD
     bool _use_position_search;
     float _position_search_radius_this;
     float _position_search_radius_other;
-
-    // registration
     float _reg_voxel_size;
     bool _use_kiss_matcher;
     float _km_normal_radius_gain;
@@ -143,34 +89,25 @@ private:
     double _gicp_max_correspondence_distance;
     float _fitness_thres;
     float _fitness_max_dist;
-
-    // PCM
     bool _use_pcm;
     int _pcm_start_threshold;
     float _pcm_thres;
     std::string _pcm_matrix_dir;
 
-    // ---------------------------------------------------------------- state
+    // state
     std::string _robot_this;  // robot of the loop currently processed
     int _robot_id_th;
-    int _robot_this_th;
-    int _num_bin;
+    int _robot_this_th = 0;
+    int _num_bin = 0;
 
-    std::atomic<bool> _communication_signal{true};
-    std::vector<std::unique_ptr<Peer>> _peers;
-    std::mutex mtx;
+    pcl::KdTreeFLANN<PointType>::Ptr _kdtree_pose_to_search{new pcl::KdTreeFLANN<PointType>()};
+    pcl::PointCloud<PointType>::Ptr _cloud_pose_to_search_this{new pcl::PointCloud<PointType>()};
+    pcl::PointCloud<PointType>::Ptr _cloud_pose_to_search_other{new pcl::PointCloud<PointType>()};
 
-    skid_slam::cloud_info _cloud_info;
-    std_msgs::Header _cloud_header;
+    std::pair<int, int> _initial_loop{-1, 0};
+    int _id_bin_last = 0;
 
-    pcl::KdTreeFLANN<PointType>::Ptr _kdtree_pose_to_search;
-    pcl::PointCloud<PointType>::Ptr _cloud_pose_to_search_this;
-    pcl::PointCloud<PointType>::Ptr _cloud_pose_to_search_other;
-
-    std::pair<int, int> _initial_loop;
-    int _id_bin_last;
-
-    skid_slam::context_info _loop_info;
+    LoopConstraint _loop_info;
 
     std::unique_ptr<solid::Extractor> _solid_extractor;
     std::unique_ptr<solid::Database> _solid_database;
@@ -179,7 +116,6 @@ private:
     std::vector<std::pair<int, float>> _idx_nearest_list;  // (keyframe id, yaw guess)
     std::unordered_map<int, Keyframe> _bin_with_id;
 
-    // pcm & graph
     // first: source pose; second: source pose in target; third: fitness score
     std::unordered_map<int, std::vector<std::tuple<gtsam::Pose3, gtsam::Pose3, float>>> _pose_queue;
     // first: target, second: source, third: relative transform
@@ -187,287 +123,69 @@ private:
     // first: robot id, second: accepted loop ids in _loop_queue
     std::unordered_map<int, std::vector<int>> _loop_accept_queue;
 
-    std::unordered_map<std::string, std::vector<PointTypePose>> _global_odom_trans;
-    std::unordered_map<int, std::vector<PointTypePose>> _global_map_trans;
-    std::unordered_map<int, PointTypePose> _global_map_trans_optimized;
+    std::unordered_map<std::string, std::vector<Pose6D>> _global_odom_trans;
+    std::unordered_map<int, std::vector<Pose6D>> _global_map_trans;
+    std::unordered_map<int, Pose6D> _global_map_trans_optimized;
 
-    PointTypePose _trans_to_publish;
+    Pose6D _trans_to_publish;
 
-public:
-    MapFusion()
+    Impl(const MapFusionConfig& config, MapFusion::Callbacks cbs)
+        : cfg(config), callbacks(std::move(cbs))
     {
-        loadParameters();
-        initialization();
+        _robot_id = cfg.robot_id;
+        _robot_initial = cfg.robot_initial;
+        _loop_frame_thres = cfg.loop_frame_threshold;
+        _solid_cfg = cfg.solid;
+        _solid_cfg.min_similarity = 1.0 - cfg.loop_threshold;
+        _num_match_candidates = cfg.num_candidates;
+        _use_position_search = cfg.use_position_search;
+        _position_search_radius_this = cfg.position_search_radius_this;
+        _position_search_radius_other = cfg.position_search_radius_other;
+        _reg_voxel_size = cfg.reg_voxel_size;
+        _use_kiss_matcher = cfg.use_kiss_matcher;
+        _km_normal_radius_gain = cfg.km_normal_radius_gain;
+        _km_fpfh_radius_gain = cfg.km_fpfh_radius_gain;
+        _km_linearity_thres = cfg.km_linearity_threshold;
+        _km_robin_noise_bound_gain = cfg.km_robin_noise_bound_gain;
+        _km_solver_noise_bound_gain = cfg.km_solver_noise_bound_gain;
+        _km_robin_mode = cfg.km_robin_mode;
+        _km_use_ratio_test = cfg.km_use_ratio_test;
+        _km_tuple_scale = cfg.km_tuple_scale;
+        _km_use_quatro = cfg.km_use_quatro;
+        _gicp_num_threads = cfg.gicp_num_threads;
+        _gicp_downsampling_resolution = cfg.gicp_downsampling_resolution;
+        _gicp_max_correspondence_distance = cfg.gicp_max_correspondence_distance;
+        _fitness_thres = cfg.fitness_threshold;
+        _fitness_max_dist = cfg.fitness_max_distance;
+        _use_pcm = cfg.use_pcm;
+        _pcm_start_threshold = cfg.pcm_start_threshold;
+        _pcm_thres = cfg.pcm_threshold;
+        _pcm_matrix_dir = cfg.pcm_matrix_dir;
 
-        _sub_communication_signal = nh.subscribe<std_msgs::Bool>(_robot_id + "/skid_slam/signal",
-            100, &MapFusion::communicationSignalHandler, this, ros::TransportHints().tcpNoDelay());
-
-        for (auto& peer : _peers) {
-            Peer* p = peer.get();
-            peer->sub_signal = nh.subscribe<std_msgs::Bool>(peer->id + "/skid_slam/signal", 100,
-                [p](const std_msgs::Bool::ConstPtr& msg) { p->link_up = msg->data; });
-        }
-
-        _sub_laser_cloud_info = nh.subscribe<skid_slam::cloud_info>(_robot_id + "/" + _local_topic,
-            1, &MapFusion::laserCloudInfoHandler, this, ros::TransportHints().tcpNoDelay());
-
-        _sub_loop_info_global = nh.subscribe<skid_slam::context_info>(_topic + "/loop_info_global",
-            100, &MapFusion::globalLoopInfoHandler, this, ros::TransportHints().tcpNoDelay());
-
-        if (_robot_id != _robot_initial) {
-            _sub_context_info = nh.subscribe<skid_slam::context_info>(_topic + "/context_info",
-                20, &MapFusion::contextInfoHandler, this, ros::TransportHints().tcpNoDelay());
-            _sub_odom_trans = nh.subscribe<nav_msgs::Odometry>(_topic + "/trans_odom",
-                20, &MapFusion::odomTransHandler, this, ros::TransportHints().tcpNoDelay());
-        }
-
-        _pub_context_info     = nh.advertise<skid_slam::context_info>(_topic + "/context_info", 1);
-        _pub_loop_info        = nh.advertise<skid_slam::context_info>(_robot_id + "/" + _topic + "/loop_info", 1);
-        _pub_cloud            = nh.advertise<sensor_msgs::PointCloud2>(_robot_id + "/" + _topic + "/cloud", 1);
-        _pub_trans_odom2map   = nh.advertise<nav_msgs::Odometry>(_robot_id + "/" + _topic + "/trans_map", 1);
-        _pub_trans_odom2odom  = nh.advertise<nav_msgs::Odometry>(_topic + "/trans_odom", 1);
-        _pub_loop_info_global = nh.advertise<skid_slam::context_info>(_topic + "/loop_info_global", 1);
-    }
-
-    // Sends queued keyframes to every reachable peer with a larger robot number.
-    void publishContextInfoThread()
-    {
-        while (ros::ok()) {
-            bool idle = true;
-            for (auto& peer : _peers) {
-                if (!_communication_signal || !peer->link_up || _robot_id_th >= peer->number)
-                    continue;
-                Keyframe kf;
-                {
-                    std::lock_guard<std::mutex> lock(peer->mtx);
-                    if (peer->queue.empty())
-                        continue;
-                    kf = peer->queue.back();
-                    peer->queue.pop_back();
-                }
-                publishContextInfo(kf, peer->id);
-                idle = false;
-            }
-            if (idle)
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-    }
-
-private:
-    void loadParameters()
-    {
-        ros::NodeHandle pnh("~");
-        pnh.param<std::string>("robot_id", _robot_id, "jackal0");
-        std::vector<std::string> peer_ids;
-        pnh.param<std::vector<std::string>>("peers", peer_ids, {});
-        pnh.param<std::string>("pcm_matrix_dir", _pcm_matrix_dir, "/tmp");
-
-        nh.param<std::string>("mapfusion/robot_initial", _robot_initial, "jackal0");
-        nh.param<std::string>("mapfusion/topic", _topic, "context");
-        nh.param<std::string>("mapfusion/frame", _frame, "base_link");
-        nh.param<std::string>("mapfusion/local_topic", _local_topic, "skid_slam/mapping/cloud_info");
-        nh.param<int>("mapfusion/loop_frame_threshold", _loop_frame_thres, 10);
-
-        nh.param<int>("mapfusion/solid/num_range", _solid_cfg.num_range, 40);
-        nh.param<int>("mapfusion/solid/num_angle", _solid_cfg.num_angle, 60);
-        nh.param<int>("mapfusion/solid/num_height", _solid_cfg.num_height, 64);
-        nh.param<float>("mapfusion/solid/min_range", _solid_cfg.min_range, 0.0);
-        nh.param<float>("mapfusion/solid/max_range", _solid_cfg.max_range, 40.0);
-        nh.param<float>("mapfusion/solid/fov_up", _solid_cfg.fov_up, 22.5);
-        nh.param<float>("mapfusion/solid/fov_down", _solid_cfg.fov_down, -22.5);
-        nh.param<float>("mapfusion/solid/voxel_size", _solid_cfg.voxel_size, 0.0);
-
-        nh.param<int>("mapfusion/retrieval/num_nearest", _solid_cfg.knn, 30);
-        nh.param<int>("mapfusion/retrieval/num_candidates", _num_match_candidates, 1);
-        nh.param<float>("mapfusion/retrieval/loop_threshold", _loop_thres, 0.5);
-        nh.param<bool>("mapfusion/retrieval/use_position_search", _use_position_search, false);
-        nh.param<float>("mapfusion/retrieval/position_search_radius_this", _position_search_radius_this, 5.0);
-        nh.param<float>("mapfusion/retrieval/position_search_radius_other", _position_search_radius_other, 10.0);
-        _solid_cfg.min_similarity = 1.0 - _loop_thres;
-
-        nh.param<float>("mapfusion/registration/voxel_size", _reg_voxel_size, 0.75);
-        nh.param<bool>("mapfusion/registration/use_kiss_matcher", _use_kiss_matcher, true);
-        nh.param<float>("mapfusion/registration/kiss_matcher/normal_radius_gain", _km_normal_radius_gain, 3.5);
-        nh.param<float>("mapfusion/registration/kiss_matcher/fpfh_radius_gain", _km_fpfh_radius_gain, 5.0);
-        nh.param<float>("mapfusion/registration/kiss_matcher/linearity_threshold", _km_linearity_thres, 0.99);
-        nh.param<float>("mapfusion/registration/kiss_matcher/robin_noise_bound_gain", _km_robin_noise_bound_gain, 1.0);
-        nh.param<float>("mapfusion/registration/kiss_matcher/solver_noise_bound_gain", _km_solver_noise_bound_gain, 1.0);
-        nh.param<std::string>("mapfusion/registration/kiss_matcher/robin_mode", _km_robin_mode, "max_core");
-        nh.param<bool>("mapfusion/registration/kiss_matcher/use_ratio_test", _km_use_ratio_test, true);
-        nh.param<float>("mapfusion/registration/kiss_matcher/tuple_scale", _km_tuple_scale, 0.95);
-        nh.param<bool>("mapfusion/registration/kiss_matcher/use_quatro", _km_use_quatro, false);
-        nh.param<int>("mapfusion/registration/gicp/num_threads", _gicp_num_threads, 4);
-        nh.param<double>("mapfusion/registration/gicp/downsampling_resolution", _gicp_downsampling_resolution, 0.25);
-        nh.param<double>("mapfusion/registration/gicp/max_correspondence_distance", _gicp_max_correspondence_distance, 1.0);
-        nh.param<float>("mapfusion/registration/fitness_threshold", _fitness_thres, 1.2);
-        nh.param<float>("mapfusion/registration/fitness_max_distance", _fitness_max_dist, 100.0);
-
-        nh.param<bool>("mapfusion/pcm/enable", _use_pcm, true);
-        nh.param<int>("mapfusion/pcm/start_threshold", _pcm_start_threshold, 2);
-        nh.param<float>("mapfusion/pcm/threshold", _pcm_thres, 5.0);
-
-        for (const auto& id : {_robot_id, _robot_initial}) {
-            if (id.empty() || !std::isdigit(id.back())) {
-                ROS_FATAL("Robot names must end with a single digit (e.g. jackal0), got '%s'.", id.c_str());
-                ros::shutdown();
-            }
-        }
-        for (const auto& id : peer_ids) {
-            if (id == _robot_id)
-                continue;
-            auto peer = std::make_unique<Peer>();
-            peer->id = id;
-            peer->number = robotID2Number(id);
-            _peers.push_back(std::move(peer));
-        }
-    }
-
-    void initialization()
-    {
+        _robot_id_th = robotID2Number(_robot_id);
         _solid_extractor = std::make_unique<solid::Extractor>(_solid_cfg);
         _solid_database = std::make_unique<solid::Database>(_solid_cfg);
-
-        _kdtree_pose_to_search.reset(new pcl::KdTreeFLANN<PointType>());
-        _cloud_pose_to_search_this.reset(new pcl::PointCloud<PointType>());
-        _cloud_pose_to_search_other.reset(new pcl::PointCloud<PointType>());
-
-        _initial_loop.first = -1;
-        _robot_id_th = robotID2Number(_robot_id);
-        _trans_to_publish.intensity = 0;
-        _num_bin = 0;
     }
 
-    void laserCloudInfoHandler(const skid_slam::cloud_infoConstPtr& msgIn)
+    void logf(bool debug, const char* fmt, ...)
     {
-        _cloud_info = *msgIn;
-        _cloud_header = msgIn->header;
-
-        pcl::PointCloud<PointType> cloud_deskewed, cloud_corner, cloud_surface;
-        pcl::fromROSMsg(msgIn->cloud_deskewed, cloud_deskewed);
-        pcl::fromROSMsg(msgIn->cloud_corner, cloud_corner);
-        pcl::fromROSMsg(msgIn->cloud_surface, cloud_surface);
-
-        std::vector<Eigen::Vector3f> points;
-        points.reserve(cloud_deskewed.size());
-        for (const auto& pt : cloud_deskewed.points)
-            points.emplace_back(pt.x, pt.y, pt.z);
-
-        Keyframe kf;
-        kf.robotname = _robot_id;
-        kf.time = _cloud_header.stamp.toSec();
-        kf.descriptor = _solid_extractor->extract(points);
-        kf.pose.x = _cloud_info.initialGuessX;
-        kf.pose.y = _cloud_info.initialGuessY;
-        kf.pose.z = _cloud_info.initialGuessZ;
-        kf.pose.roll  = _cloud_info.initialGuessRoll;
-        kf.pose.pitch = _cloud_info.initialGuessPitch;
-        kf.pose.yaw   = _cloud_info.initialGuessYaw;
-        kf.pose.intensity = _cloud_info.imuAvailable;  // keyframe index, set by mapOptimization
-
-        // the feature cloud (corner + surface) is what is shared and registered
-        kf.cloud.reset(new pcl::PointCloud<PointType>());
-        *kf.cloud += cloud_corner;
-        *kf.cloud += cloud_surface;
-
-        for (auto& peer : _peers) {
-            std::lock_guard<std::mutex> lock(peer->mtx);
-            peer->queue.push_back(kf);
-        }
-
-        publishContextInfo(kf, _robot_id);
+        if (!callbacks.log)
+            return;
+        char buf[512];
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(buf, sizeof(buf), fmt, args);
+        va_end(args);
+        callbacks.log(debug, buf);
     }
 
-    void communicationSignalHandler(const std_msgs::Bool::ConstPtr& msg)
+    void addRobotTransform(const std::string& robot_publish, const std::string& robot_child, Pose6D pose)
     {
-        _communication_signal = msg->data;
-    }
-
-    void publishContextInfo(const Keyframe& kf, const std::string& robot_to)
-    {
-        skid_slam::context_info context_info;
-        context_info.robotID = _robot_id;
-        context_info.robotIDReceive = robot_to;
-        context_info.header.stamp = ros::Time(kf.time);
-        context_info.header.frame_id = _cloud_header.frame_id;
-
-        context_info.numRing   = kf.descriptor.rsolid.size();
-        context_info.numSector = kf.descriptor.asolid.size();
-        context_info.numHeight = _solid_cfg.num_height;
-        context_info.rsolid.assign(kf.descriptor.rsolid.data(), kf.descriptor.rsolid.data() + kf.descriptor.rsolid.size());
-        context_info.asolid.assign(kf.descriptor.asolid.data(), kf.descriptor.asolid.data() + kf.descriptor.asolid.size());
-
-        context_info.poseX = kf.pose.x;
-        context_info.poseY = kf.pose.y;
-        context_info.poseZ = kf.pose.z;
-        context_info.poseRoll  = kf.pose.roll;
-        context_info.posePitch = kf.pose.pitch;
-        context_info.poseYaw   = kf.pose.yaw;
-        context_info.poseIntensity = kf.pose.intensity;
-
-        context_info.scanCloud = publishCloud(&_pub_cloud, kf.cloud, ros::Time(kf.time), _robot_id + "/" + _frame);
-
-        std::lock_guard<std::mutex> lock(mtx);
-        _pub_context_info.publish(context_info);
-    }
-
-    void odomTransHandler(const nav_msgs::Odometry::ConstPtr& odomMsg)
-    {
-        std::string robot_publish = odomMsg->header.frame_id;
-        if (robot_publish == _robot_id)
-            return;  // skip messages published by this node
-        std::string robot_child = odomMsg->child_frame_id;
-        std::string index = robot_child + robot_publish;
-
-        PointTypePose pose;
-        pose.x = odomMsg->pose.pose.position.x;
-        pose.y = odomMsg->pose.pose.position.y;
-        pose.z = odomMsg->pose.pose.position.z;
-        tf::Quaternion orientation;
-        tf::quaternionMsgToTF(odomMsg->pose.pose.orientation, orientation);
-        double roll, pitch, yaw;
-        tf::Matrix3x3(orientation).getRPY(roll, pitch, yaw);
-        pose.roll = roll; pose.pitch = pitch; pose.yaw = yaw;
         pose.intensity = robotID2Number(robot_child);  // intensity serves as the robot index
-
-        _global_odom_trans[index].push_back(pose);
+        _global_odom_trans[robot_child + robot_publish].push_back(pose);
 
         gtsamFactorGraph();
         sendMapOutputMessage();
-    }
-
-    void globalLoopInfoHandler(const skid_slam::context_infoConstPtr& msgIn)
-    {
-        if (msgIn->robotID != _robot_id)
-            return;
-        _pub_loop_info.publish(*msgIn);
-        sendMapOutputMessage();
-    }
-
-    void contextInfoHandler(const skid_slam::context_infoConstPtr& msgIn)
-    {
-        if (!_communication_signal)
-            return;
-        if (msgIn->robotIDReceive != _robot_id)
-            return;
-
-        Keyframe kf;
-        kf.robotname = msgIn->robotID;
-        kf.time = msgIn->header.stamp.toSec();
-        kf.pose.x = msgIn->poseX;
-        kf.pose.y = msgIn->poseY;
-        kf.pose.z = msgIn->poseZ;
-        kf.pose.roll  = msgIn->poseRoll;
-        kf.pose.pitch = msgIn->posePitch;
-        kf.pose.yaw   = msgIn->poseYaw;
-        kf.pose.intensity = msgIn->poseIntensity;
-
-        kf.cloud.reset(new pcl::PointCloud<PointType>());
-        pcl::fromROSMsg(msgIn->scanCloud, *kf.cloud);
-
-        kf.descriptor.rsolid = Eigen::Map<const Eigen::VectorXf>(msgIn->rsolid.data(), msgIn->rsolid.size()).cast<double>();
-        kf.descriptor.asolid = Eigen::Map<const Eigen::VectorXf>(msgIn->asolid.data(), msgIn->asolid.size()).cast<double>();
-
-        run(kf);
     }
 
     void run(const Keyframe& kf)
@@ -546,7 +264,7 @@ private:
             if (robotID2Number(kf.robotname) >= _robot_id_th && robotID2Number(robot_candidate) >= _robot_id_th)
                 continue;
 
-            ROS_DEBUG("[%s] SOLiD distance: %f", _robot_id.c_str(), 1.0 - candidate.score);
+            logf(true, "[%s] SOLiD distance: %f", _robot_id.c_str(), 1.0 - candidate.score);
 
             float yaw = candidate.yaw_rad;
             if (yaw > M_PI)
@@ -624,7 +342,7 @@ private:
         int id0 = idx_nearest, id1 = _num_bin - 1;
 
         Keyframe bin_nearest;
-        PointTypePose source_pose_initial, target_pose;
+        Pose6D source_pose_initial, target_pose;
 
         int robot_id_this = robotID2Number(bin.robotname);
 
@@ -651,7 +369,7 @@ private:
 
         if (_global_map_trans_optimized.find(_robot_this_th) != _global_map_trans_optimized.end()) {
             // initial guess from the current inter-robot frame transform
-            const PointTypePose& trans_to_that = _global_map_trans_optimized[_robot_this_th];
+            const Pose6D& trans_to_that = _global_map_trans_optimized[_robot_this_th];
             Eigen::Affine3f t_source2target = pcl::getTransformation(trans_to_that.x, trans_to_that.y, trans_to_that.z,
                                                                      trans_to_that.roll, trans_to_that.pitch, trans_to_that.yaw);
             Eigen::Affine3f t_source = pcl::getTransformation(bin.pose.x, bin.pose.y, bin.pose.z,
@@ -674,16 +392,16 @@ private:
             source_pose_initial.z = target_pose.z;
         }
 
-        PointTypePose pose_source_lidar = registerClouds(transformPointCloud(bin.cloud, &source_pose_initial),
+        Pose6D pose_source_lidar = registerClouds(transformPointCloud(bin.cloud, &source_pose_initial),
                                                          transformPointCloud(bin_nearest.cloud, &target_pose),
                                                          source_pose_initial);
 
         if (pose_source_lidar.intensity == -1 || pose_source_lidar.intensity > _fitness_thres) {
-            ROS_DEBUG("[%s] loop %s <-> %s rejected by registration (fitness %.6f)",
+            logf(true, "[%s] loop %s <-> %s rejected by registration (fitness %.6f)",
                       _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity);
             return false;
         }
-        ROS_INFO("[%s] loop %s <-> %s verified (fitness %.6f)",
+        logf(false, "[%s] loop %s <-> %s verified (fitness %.6f)",
                  _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity);
 
         gtsam::Pose3 pose_from   = toPose3(bin.pose);
@@ -696,7 +414,7 @@ private:
         return true;
     }
 
-    pcl::PointCloud<PointType>::Ptr transformPointCloud(pcl::PointCloud<PointType>::Ptr cloudIn, PointTypePose* transformIn)
+    pcl::PointCloud<PointType>::Ptr transformPointCloud(pcl::PointCloud<PointType>::Ptr cloudIn, Pose6D* transformIn)
     {
         pcl::PointCloud<PointType>::Ptr cloudOut(new pcl::PointCloud<PointType>());
         Eigen::Affine3f transCur = pcl::getTransformation(transformIn->x, transformIn->y, transformIn->z,
@@ -744,9 +462,9 @@ private:
 
     // Coarse-to-fine registration of source onto target (both already in the target odom frame).
     // Returns the corrected source pose; intensity holds the fitness score.
-    PointTypePose registerClouds(pcl::PointCloud<PointType>::Ptr source,
+    Pose6D registerClouds(pcl::PointCloud<PointType>::Ptr source,
                                  pcl::PointCloud<PointType>::Ptr target,
-                                 const PointTypePose& pose_source)
+                                 const Pose6D& pose_source)
     {
         voxelize(source, _reg_voxel_size);
         voxelize(target, _reg_voxel_size);
@@ -780,7 +498,7 @@ private:
                 T_global.topRightCorner(3, 1) = solution.translation.cast<float>();
                 pcl::transformPointCloud(*source, *source, T_global);
             }
-            ROS_DEBUG_STREAM("[" << _robot_id << "] KISS-Matcher valid: " << solution.valid << "\n" << T_global);
+            logf(true, "[%s] KISS-Matcher valid: %d", _robot_id.c_str(), (int)solution.valid);
         }
 
         // ---- local refinement: small_gicp
@@ -807,7 +525,7 @@ private:
                                                          pose_source.roll, pose_source.pitch, pose_source.yaw);
         Eigen::Affine3f t_correct = correction * t_wrong;
 
-        PointTypePose pose_out;
+        Pose6D pose_out;
         pcl::getTranslationAndEulerAngles(t_correct, pose_out.x, pose_out.y, pose_out.z,
                                           pose_out.roll, pose_out.pitch, pose_out.yaw);
 
@@ -832,7 +550,7 @@ private:
         FMC::maxCliqueHeu(gio, max_clique_data);
         std::sort(max_clique_data.begin(), max_clique_data.end());
 
-        ROS_INFO("[%s] PCM: %zu / %zu loops with %s are consistent",
+        logf(false, "[%s] PCM: %zu / %zu loops with %s are consistent",
                  _robot_id.c_str(), max_clique_data.size(), _loop_queue[_robot_this_th].size(), _robot_this.c_str());
 
         auto accepted = _loop_accept_queue.find(_robot_this_th);
@@ -932,7 +650,7 @@ private:
         gtsam::Values result = gtsam::LevenbergMarquardtOptimizer(graph, initial).optimize();
         gtsam::Pose3 est = result.at<gtsam::Pose3>(0);
 
-        PointTypePose map_trans_this;
+        Pose6D map_trans_this;
         map_trans_this.x = est.translation().x();
         map_trans_this.y = est.translation().y();
         map_trans_this.z = est.translation().z();
@@ -978,7 +696,7 @@ private:
         initialEstimate.insert(0, gtsam::Pose3());
 
         bool ill_posed = true;
-        auto addConstraints = [&](int id_a, int id_b, const std::vector<PointTypePose>& measurements) {
+        auto addConstraints = [&](int id_a, int id_b, const std::vector<Pose6D>& measurements) {
             int id_0 = std::min(id_a, id_b);
             int id_1 = std::max(id_a, id_b);
             for (const auto& m : measurements)
@@ -1066,40 +784,21 @@ private:
         }
     }
 
-    // Publishes the odom -> global map transform of this robot to its SLAM node.
+    // Reports the odom -> global map transform of this robot.
     void sendMapOutputMessage()
     {
         if (_trans_to_publish.intensity == 0)
             return;
-
-        nav_msgs::Odometry odom2map;
-        odom2map.header.stamp = _cloud_header.stamp;
-        odom2map.header.frame_id = _robot_id + "/" + _frame;
-        odom2map.child_frame_id = _robot_id + "/" + _frame + "/odom2map";
-        odom2map.pose.pose.position.x = _trans_to_publish.x;
-        odom2map.pose.pose.position.y = _trans_to_publish.y;
-        odom2map.pose.pose.position.z = _trans_to_publish.z;
-        odom2map.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(
-            _trans_to_publish.roll, _trans_to_publish.pitch, _trans_to_publish.yaw);
-        _pub_trans_odom2map.publish(odom2map);
+        if (callbacks.map_transform)
+            callbacks.map_transform(_trans_to_publish);
     }
 
-    // Publishes the relative frame transform to the other robots.
+    // Reports the relative frame transform to the robot of the latest loop.
     void sendOdomOutputMessage()
     {
         sendMapOutputMessage();
-
-        const PointTypePose& trans = _global_map_trans_optimized[_robot_this_th];
-        nav_msgs::Odometry odom2odom;
-        odom2odom.header.stamp = _cloud_header.stamp;
-        odom2odom.header.frame_id = _robot_id;
-        odom2odom.child_frame_id = _robot_this;
-        odom2odom.pose.pose.position.x = trans.x;
-        odom2odom.pose.pose.position.y = trans.y;
-        odom2odom.pose.pose.position.z = trans.z;
-        odom2odom.pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(trans.roll, trans.pitch, trans.yaw);
-        _pub_trans_odom2odom.publish(odom2odom);
-
+        if (callbacks.robot_transform)
+            callbacks.robot_transform(_robot_this, _global_map_trans_optimized[_robot_this_th]);
         sendGlobalLoopMessage();
     }
 
@@ -1155,7 +854,7 @@ private:
 
         float intensity = (std::get<2>(pose_this) + std::get<2>(pose_that)) / 2.0;
         updateLoopInfo(id_bin_last, id_bin_this, pose_to_that, pose_to_this, intensity);
-        _pub_loop_info.publish(_loop_info);
+        if (callbacks.local_loop) callbacks.local_loop(_loop_info);
     }
 
     void sendLoopThat(int robot_id_this, int robot_id_that, int id_loop_this, int id_loop_that)
@@ -1174,41 +873,70 @@ private:
 
         float intensity = (std::get<2>(pose_this) + std::get<2>(pose_that)) / 2.0;
         updateLoopInfo(id_bin_last, id_bin_this, pose_to_that, pose_to_this, intensity);
-        _pub_loop_info_global.publish(_loop_info);
+        if (callbacks.global_loop) callbacks.global_loop(_loop_info);
     }
 
     void updateLoopInfo(int id_bin_last, int id_bin_this, const gtsam::Pose3& pose_to_last,
                         const gtsam::Pose3& pose_to_this, float intensity)
     {
         gtsam::Pose3 dpose = pose_to_last.between(pose_to_this);
-        _loop_info.robotID   = _bin_with_id[id_bin_last].robotname;
-        _loop_info.numRing   = _bin_with_id[id_bin_last].pose.intensity;  // keyframe index from
-        _loop_info.numSector = _bin_with_id[id_bin_this].pose.intensity;  // keyframe index to
+        _loop_info.robot      = _bin_with_id[id_bin_last].robotname;
+        _loop_info.index_from = _bin_with_id[id_bin_last].pose.intensity;
+        _loop_info.index_to   = _bin_with_id[id_bin_this].pose.intensity;
 
-        _loop_info.poseX = dpose.translation().x();
-        _loop_info.poseY = dpose.translation().y();
-        _loop_info.poseZ = dpose.translation().z();
-        _loop_info.poseRoll  = dpose.rotation().roll();
-        _loop_info.posePitch = dpose.rotation().pitch();
-        _loop_info.poseYaw   = dpose.rotation().yaw();
-        _loop_info.poseIntensity = intensity;
+        _loop_info.relative.x = dpose.translation().x();
+        _loop_info.relative.y = dpose.translation().y();
+        _loop_info.relative.z = dpose.translation().z();
+        _loop_info.relative.roll  = dpose.rotation().roll();
+        _loop_info.relative.pitch = dpose.rotation().pitch();
+        _loop_info.relative.yaw   = dpose.rotation().yaw();
+        _loop_info.noise = intensity;
     }
 };
 
-
-int main(int argc, char** argv)
+MapFusion::MapFusion(const MapFusionConfig& config, Callbacks callbacks)
+    : impl_(std::make_unique<Impl>(config, std::move(callbacks)))
 {
-    ros::init(argc, argv, "skid_slam");
-
-    MapFusion MapF;
-
-    ROS_INFO("\033[1;32m----> Map Fusion Started.\033[0m");
-
-    std::thread publishThread(&MapFusion::publishContextInfoThread, &MapF);
-
-    ros::spin();
-
-    publishThread.join();
-
-    return 0;
 }
+
+MapFusion::~MapFusion() = default;
+
+const MapFusionConfig& MapFusion::config() const
+{
+    return impl_->cfg;
+}
+
+Keyframe MapFusion::makeKeyframe(const pcl::PointCloud<PointType>& scan, pcl::PointCloud<PointType>::Ptr features,
+                                 const Pose6D& pose, double time) const
+{
+    std::vector<Eigen::Vector3f> points;
+    points.reserve(scan.size());
+    for (const auto& pt : scan.points)
+        points.emplace_back(pt.x, pt.y, pt.z);
+
+    Keyframe kf;
+    kf.robotname = impl_->_robot_id;
+    kf.time = time;
+    kf.pose = pose;
+    kf.cloud = features;
+    kf.descriptor = impl_->_solid_extractor->extract(points);
+    return kf;
+}
+
+void MapFusion::processKeyframe(const Keyframe& keyframe)
+{
+    impl_->run(keyframe);
+}
+
+void MapFusion::addRobotTransform(const std::string& robot_publish, const std::string& robot_child,
+                                  const Pose6D& transform)
+{
+    impl_->addRobotTransform(robot_publish, robot_child, transform);
+}
+
+void MapFusion::publishMapTransform()
+{
+    impl_->sendMapOutputMessage();
+}
+
+}  // namespace skid_slam

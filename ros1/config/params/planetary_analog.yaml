@@ -88,7 +88,7 @@ skid_slam:
   globalMapVisualizationLeafSize: 0.25         # meters, global map visualization cloud density
   globalMapVisualizationRaw: true               # build the visualized map from raw scans (denser, more memory)
   globalMapVisualizationRate: 1.0               # Hz, global map publishing rate
-  globalMapVisualizationRawRange: 25.0          # meters, raw points kept per keyframe in the visualized map (0: all)
+  globalMapVisualizationRawRange: 40.0          # meters, raw points kept per keyframe in the visualized map (0: all)
 
 mapfusion:
   robot_initial: jackal0              # robot whose odom frame anchors the global map

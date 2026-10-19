@@ -2,6 +2,7 @@
   <h1>SKiD-SLAM</h1>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/-C++-blue?logo=cplusplus" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS-Noetic-blue" /></a>
+  <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/ROS2-Humble-blue" /></a>
   <a href="https://github.com/sparolab/SKiD-SLAM"><img src="https://img.shields.io/badge/Ubuntu-E95420?logo=ubuntu&logoColor=white" /></a>
   <a href="#docker"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" /></a>
   <br />
@@ -28,40 +29,61 @@ ______________________________________________________________________
 
 ## :package: Installation
 
+```bash
+git clone https://github.com/sparolab/SKiD-SLAM.git
+cd SKiD-SLAM && git submodule update --init
+```
+
 ### Docker
 
 ```bash
-git clone https://github.com/sparolab/SKiD-SLAM.git
-cd SKiD-SLAM
-git submodule update --init
-docker build -f docker/Dockerfile -t skid-slam .
+docker build -f docker/Dockerfile.noetic -t skid-slam:noetic .   # ROS 1
+docker build -f docker/Dockerfile.humble -t skid-slam:humble .   # ROS 2
 
 xhost +local:docker
 docker run -it --rm --net=host -e DISPLAY=$DISPLAY \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
-  -v /path/to/bags:/data \
-  skid-slam
+  -v /tmp/.X11-unix:/tmp/.X11-unix -v /path/to/bags:/data skid-slam:humble
 ```
 
-### From source (ROS Noetic)
+### From source
+
+<details open>
+  <summary><strong>ROS 1 (Noetic)</strong></summary>
 
 ```bash
 sudo add-apt-repository ppa:borglab/gtsam-release-4.0
 sudo apt install libgtsam-dev libgtsam-unstable-dev libflann-dev liblz4-dev libtbb-dev
 
-cd ~/catkin_ws/src
-git clone https://github.com/sparolab/SKiD-SLAM.git
-cd SKiD-SLAM && git submodule update --init
+# clone into ~/catkin_ws/src
 cd ~/catkin_ws && catkin_make -DCMAKE_BUILD_TYPE=Release
 ```
+
+</details>
+
+<details open>
+  <summary><strong>ROS 2 (Humble)</strong></summary>
+
+```bash
+sudo apt install ros-humble-gtsam libflann-dev liblz4-dev libtbb-dev
+
+# clone into ~/ros2_ws/src
+cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+</details>
 
 ______________________________________________________________________
 
 ## :rocket: Run
 
 ```bash
+# ROS 1
 roslaunch skid_slam run.launch config:=majang
 rosbag play --clock majang.bag
+
+# ROS 2
+ros2 launch skid_slam run.launch.py config:=majang
+ros2 bag play majang --clock
 ```
 
 | Argument | Default | Description |
@@ -78,7 +100,7 @@ ______________________________________________________________________
 
 ## :gear: Configuration
 
-All parameters live in [`config/params/`](config/params) and are read at runtime, so tuning never requires a rebuild.
+All parameters live in [`ros1/config/params/`](ros1/config/params) and [`ros2/config/params/`](ros2/config/params) and are read at runtime, so tuning never requires a rebuild.
 
 ______________________________________________________________________
 

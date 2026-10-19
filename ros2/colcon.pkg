@@ -1,0 +1,4 @@
+{
+  "name": "skid_slam",
+  "type": "ros.ament_cmake"
+}
