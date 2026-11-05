@@ -10,7 +10,7 @@
   <a href="#docker"><img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" /></a>
   <br />
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/Project-Page-blue" /></a>
-  <a href="https://arxiv.org/abs/2505.08230"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
+  <a href="https://arxiv.org/abs/2610.38141"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <img src="https://img.shields.io/badge/YouTube-FF0000?logo=youtube&logoColor=white" />
   <br />
@@ -127,7 +127,7 @@ ______________________________________________________________________
 
 ## Citation
 
-If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org/abs/2505.08230).
+If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org/abs/2610.38141).
 
 <details>
   <summary><strong>See bibtex</strong></summary>
