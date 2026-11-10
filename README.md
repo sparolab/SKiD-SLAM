@@ -11,6 +11,7 @@
   <br />
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/Project-Page-blue" /></a>
   <a href="https://arxiv.org/abs/2610.38141"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
+  <a href="https://doi.org/10.1109/TFR.2026.3721725"><img src="https://img.shields.io/badge/IEEE-T--FR-00629B?logo=ieee&logoColor=white" /></a>
   <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <img src="https://img.shields.io/badge/YouTube-FF0000?logo=youtube&logoColor=white" />
   <br />
@@ -127,21 +128,21 @@ ______________________________________________________________________
 
 ## Citation
 
-If you use SKiD-SLAM in your research, please cite our [paper](https://arxiv.org/abs/2610.38141).
-
-<details>
-  <summary><strong>See bibtex</strong></summary>
+If you use SKiD-SLAM in your research, please cite our paper: [IEEE T-FR](https://doi.org/10.1109/TFR.2026.3721725) · [arXiv:2610.38141](https://arxiv.org/abs/2610.38141). GitHub's **Cite this repository** button (from [`CITATION.cff`](CITATION.cff)) gives the same entry in APA and BibTeX.
 
 ```bibtex
 @article{kim2026skidslam,
-  author    = {Kim, Hogyun and Kim, Juwon and Cho, Dongjin and Choi, Jiwon and Yang, Geonmo and Jeong, Seokhwan and Lee, Jiyun and Park, Miryeong and Lim, Hyungtae and Cho, Younggun},
-  title     = {SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites},
-  journal   = {IEEE Transactions on Field Robotics (T-FR)},
-  year      = {2026},
+  author  = {Kim, Hogyun and Kim, Juwon and Cho, Dongjin and Choi, Jiwon and Yang, Geonmo and Jeong, Seokhwan and Lee, Jiyun and Park, Miryeong and Lim, Hyungtae and Cho, Younggun},
+  title   = {{SKiD-SLAM}: Resource-Aware Distributed Multi-Robot {LiDAR} {SLAM} for Planetary Missions with Field Deployments at Analog Sites},
+  journal = {IEEE Transactions on Field Robotics},
+  volume  = {3},
+  pages   = {813--841},
+  year    = {2026},
+  doi     = {10.1109/TFR.2026.3721725},
+  eprint  = {2610.38141},
+  archivePrefix = {arXiv},
 }
 ```
-
-</details>
 
 ## Contributing
 
