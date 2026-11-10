@@ -1,0 +1,80 @@
+cff-version: 1.2.0
+message: "If you use SKiD-SLAM in your research, please cite the paper below."
+title: "SKiD-SLAM"
+type: software
+license: BSD-3-Clause
+repository-code: "https://github.com/sparolab/SKiD-SLAM"
+url: "https://sparolab.github.io/research/skid_slam/"
+abstract: >-
+  Distributed multi-robot LiDAR SLAM: each robot maps on its own and shares compact SOLiD
+  descriptors; inter-robot loops are registered with KISS-Matcher and small_gicp, filtered with
+  pairwise consistency maximization, and every map is fused into a common frame. ROS 1 (Noetic)
+  and ROS 2 (Humble).
+keywords:
+  - SLAM
+  - multi-robot
+  - distributed SLAM
+  - LiDAR
+  - place recognition
+  - planetary exploration
+  - field robotics
+  - ROS
+authors:
+  - family-names: Kim
+    given-names: Hogyun
+  - family-names: Kim
+    given-names: Juwon
+  - family-names: Cho
+    given-names: Dongjin
+  - family-names: Choi
+    given-names: Jiwon
+  - family-names: Yang
+    given-names: Geonmo
+  - family-names: Jeong
+    given-names: Seokhwan
+  - family-names: Lee
+    given-names: Jiyun
+  - family-names: Park
+    given-names: Miryeong
+  - family-names: Lim
+    given-names: Hyungtae
+  - family-names: Cho
+    given-names: Younggun
+identifiers:
+  - type: doi
+    value: 10.1109/TFR.2026.3721725
+    description: "IEEE T-FR paper"
+  - type: other
+    value: "arXiv:2610.38141"
+    description: "arXiv preprint"
+preferred-citation:
+  type: article
+  title: "SKiD-SLAM: Resource-Aware Distributed Multi-Robot LiDAR SLAM for Planetary Missions with Field Deployments at Analog Sites"
+  authors:
+    - family-names: Kim
+      given-names: Hogyun
+    - family-names: Kim
+      given-names: Juwon
+    - family-names: Cho
+      given-names: Dongjin
+    - family-names: Choi
+      given-names: Jiwon
+    - family-names: Yang
+      given-names: Geonmo
+    - family-names: Jeong
+      given-names: Seokhwan
+    - family-names: Lee
+      given-names: Jiyun
+    - family-names: Park
+      given-names: Miryeong
+    - family-names: Lim
+      given-names: Hyungtae
+    - family-names: Cho
+      given-names: Younggun
+  journal: "IEEE Transactions on Field Robotics"
+  volume: 3
+  start: 813
+  end: 841
+  year: 2026
+  doi: 10.1109/TFR.2026.3721725
+  url: "https://arxiv.org/abs/2610.38141"
