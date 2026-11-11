@@ -12,7 +12,6 @@
   <a href="https://sparolab.github.io/research/skid_slam/"><img src="https://img.shields.io/badge/Project-Page-blue" /></a>
   <a href="https://arxiv.org/abs/2610.38141"><img src="https://img.shields.io/badge/arXiv-b33737?logo=arXiv" /></a>
   <a href="https://doi.org/10.1109/TFR.2026.3721725"><img src="https://img.shields.io/badge/IEEE-T--FR-00629B?logo=ieee&logoColor=white" /></a>
-  <a href="https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0"><img src="https://img.shields.io/badge/Dataset-Dropbox-0061FF?logo=dropbox&logoColor=white" /></a>
   <img src="https://img.shields.io/badge/YouTube-FF0000?logo=youtube&logoColor=white" />
   <a href="#robot-run-with-your-agent"><img src="https://img.shields.io/badge/Claude%20Code-ready-D97757?logo=claude&logoColor=white" alt="Claude Code ready" /></a>
   <a href="#robot-run-with-your-agent"><img src="https://img.shields.io/badge/Codex-ready-000000?logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHJlY3QgeD0iMS41IiB5PSIzIiB3aWR0aD0iMjEiIGhlaWdodD0iMTgiIHJ4PSIzIiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiLz48cGF0aCBkPSJNNiA5bDMuNSAzTDYgMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PHBhdGggZD0iTTEyIDE1LjVoNiIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=" alt="Codex ready" /></a>
