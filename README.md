@@ -35,10 +35,6 @@ Each robot maps on its own, and the maps merge into one as soon as the robots re
 
 <p align="center"><img src="assets/pipeline.png" alt="SKiD-SLAM pipeline" width="95%" /></p>
 
-## :floppy_disk: Datasets
-
-Multi-robot bags used in the paper (`majang.bag`, `planetary_analog.bag`) are available on **[Dropbox](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0)**.
-
 ______________________________________________________________________
 
 ## :package: Installation
