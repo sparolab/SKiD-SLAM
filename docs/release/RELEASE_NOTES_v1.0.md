@@ -31,7 +31,7 @@ ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play /data/majang --clock      # second shell
 ```
 
-ROS 1: use `docker/Dockerfile.noetic`, `roslaunch skid_slam run.launch config:=majang` and `rosbag play --clock majang.bag`. Datasets: see the README.
+ROS 1: use `docker/Dockerfile.noetic`, `roslaunch skid_slam run.launch config:=majang` and `rosbag play --clock majang.bag`.
 
 ## How to cite
 

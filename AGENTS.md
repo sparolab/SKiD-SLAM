@@ -8,7 +8,7 @@ You are setting up and running SKiD-SLAM (distributed multi-robot LiDAR SLAM) fo
 
 1. ROS version: **ROS 1 (Noetic)** or **ROS 2 (Humble)**.
 2. Build method: **Docker** (recommended; works on any Linux host with Docker) or **from source** (needs a native Noetic install on Ubuntu 20.04, or Humble on Ubuntu 22.04).
-3. Dataset: whether they already have `majang.bag` (and where), or whether you should download it (step 4, ≈ 23 GB).
+3. Dataset: where their copy of `majang.bag` (≈ 23 GB) is. The dataset is not publicly downloadable from this repository.
 4. Where to save results (default `~/skid_slam_results`).
 
 ## 1. Check the machine
@@ -68,17 +68,7 @@ A successful build produces 5 executables: `skid_slam_imageProjection`, `skid_sl
 
 ## 4. Prepare the data
 
-Download the data unless the user already has it. The [Dropbox folder](https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&st=8aziykzl&dl=0) downloads as one uncompressed zip when the link ends in `dl=1`:
-
-```bash
-mkdir -p ~/skid_slam_data && cd ~/skid_slam_data
-curl -L -o skid_slam_data.zip \
-  "https://www.dropbox.com/scl/fo/ll5mjft2barlq24ab69a7/ADdh6meCHSzOHKcVhbpSOzE?rlkey=opjpicgu3sb1wfun81o2qbf8f&dl=1"
-unzip skid_slam_data.zip && rm skid_slam_data.zip
-ls -lh   # majang.bag ≈ 23 GB
-```
-
-Extracting needs as much free space again as the zip, so check `df -h` before you start. The download is large: tell the user, and run it in the background while you build.
+Use the user's copy of `majang.bag` (≈ 23 GB); the dataset is not publicly downloadable from this repository. If they don't have it, **Ask** them how to get it, and don't search the web for a copy.
 
 - ROS 1: use the `.bag` file as is.
 - ROS 2: the bags are ROS 1 bags. Convert them once (`pip install rosbags`):
