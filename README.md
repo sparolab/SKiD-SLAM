@@ -84,10 +84,8 @@ sudo apt install ros-humble-gtsam libflann-dev liblz4-dev libtbb-dev
 # clone (with --recursive) into ~/ros2_ws/src
 cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# FAST-LIO front end (optional, frontend:=fastlio): SOLiD's FAST-LIO SLAM from thirdparty/SOLiD
-# (FAST-LIO needs Livox-SDK2 and livox_ros_driver2, as in SOLiD's docker/slam/Dockerfile.fastlio.humble)
-cd ~/ros2_ws && colcon build --base-paths src/livox_ros_driver2 src/SKiD-SLAM/thirdparty/SOLiD/thirdparty/FAST_LIO_ROS2 \
-  src/SKiD-SLAM/thirdparty/SOLiD/slam/common/ros2 src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
+# or, with the FAST-LIO front end (frontend:=fastlio): installs Livox-SDK2 and builds FAST-LIO + SOLiD too
+src/SKiD-SLAM/scripts/build_fastlio.sh
 ```
 
 </details>
@@ -110,26 +108,16 @@ See the launch guides for all arguments and outputs: [ROS 1](ros1/launch/GUIDE.m
 
 ### FAST-LIO front end (ROS 2)
 
-`frontend:=fastlio` replaces the four LIO-SAM nodes with [SOLiD](https://github.com/sparolab/SOLiD)'s FAST-LIO SLAM
-(`thirdparty/SOLiD`): per robot, [FAST-LIO](https://github.com/hku-mars/FAST_LIO) (package `fast_lio`) and SOLiD's
-`solid_node` (package `solid_ros`), which closes the robot's own loops (SOLiD + GICP + iSAM2). `skid_slam_fastlioKeyframes`
-hands their keyframes to map fusion: FAST-LIO's scans in the body frame at `solid_node`'s loop-closed pose, a
-keyframe every `fastlio.keyframe_dist` m (or `fastlio.keyframe_angle` rad), each with a submap of the last
-`fastlio.submap_dist` m of scans so the descriptor also works with narrow-FOV LiDARs. Map fusion is unchanged.
+`frontend:=fastlio` runs [SOLiD](https://github.com/sparolab/SOLiD)'s FAST-LIO SLAM per robot instead of LIO-SAM:
+[FAST-LIO](https://github.com/hku-mars/FAST_LIO) + SOLiD loop closing, whose keyframes feed the same map fusion.
 
 ```bash
-# SKiD-SLAM starts FAST-LIO + solid_node per robot (on /<robot>/<pointCloudTopic>, /<robot>/<imuTopic>)
-ros2 launch skid_slam run.launch.py config:=<config> frontend:=fastlio \
-  fastlio_params:=<fast_lio.yaml> solid_config:=<solid.yaml>
-# or reads a FAST-LIO SLAM that already runs (per robot, include/robot.launch.py)
-ros2 launch skid_slam robot.launch.py robot:=robot1 peers:=robot2 params:=<config.yaml> robot_initial:=robot1 \
-  frontend:=fastlio fastlio_odom:=/robot1/solid/odometry fastlio_cloud:=/robot1/fastlio/cloud_registered_body
+ros2 launch skid_slam run.launch.py config:=<config> frontend:=fastlio fastlio_params:=<fast_lio.yaml> solid_config:=<solid.yaml>
 ```
 
-The FAST-LIO and SOLiD configs follow SOLiD's (`slam/lidar/ros2/fast_lio_*.yaml`, `slam/config/*.yaml`, see its
-[configuration guide](https://github.com/sparolab/SOLiD/blob/main/slam/config/GUIDE.md)). `fastlio.*` parameters
-(keyframe spacing, submap length, voxel sizes) go in the SKiD-SLAM YAML; the defaults are in
-`ros2/src/fastlioKeyframes.cpp`.
+Configs follow SOLiD's ([guide](https://github.com/sparolab/SOLiD/blob/main/slam/config/GUIDE.md)); all arguments,
+including reading a FAST-LIO that already runs, are in the [launch guide](ros2/launch/GUIDE.md). FAST-LIO takes the IMU
+only from a reliable publisher.
 
 ______________________________________________________________________
 

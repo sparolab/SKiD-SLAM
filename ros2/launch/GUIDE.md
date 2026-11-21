@@ -7,7 +7,7 @@ ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play majang --clock
 ```
 
-FAST-LIO front end (SOLiD's FAST-LIO SLAM in thirdparty/SOLiD: FAST-LIO + solid_node, built next to SKiD-SLAM):
+FAST-LIO front end (SOLiD's FAST-LIO SLAM in thirdparty/SOLiD: FAST-LIO + solid_node; build with `scripts/build_fastlio.sh`):
 
 ```bash
 ros2 launch skid_slam run.launch.py config:=majang frontend:=fastlio fastlio_params:=<fast_lio.yaml> solid_config:=<solid.yaml>
