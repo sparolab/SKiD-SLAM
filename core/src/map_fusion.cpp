@@ -26,6 +26,7 @@
 #include <cstdarg>
 #include <fstream>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <tuple>
 #include <unordered_map>
@@ -115,6 +116,11 @@ struct MapFusion::Impl
     std::vector<int> _robot_received_list;
     std::vector<std::pair<int, float>> _idx_nearest_list;  // (keyframe id, yaw guess)
     std::unordered_map<int, Keyframe> _bin_with_id;
+    float _last_overlap = 1.0f;     // of the last registerClouds call
+    bool _last_kiss_valid = true;
+    int _last_kiss_inliers = 0;
+    // robot -> (keyframe index of that robot -> id in _bin_with_id)
+    std::unordered_map<std::string, std::map<int, int>> _bin_by_robot;
 
     // first: source pose; second: source pose in target; third: fitness score
     std::unordered_map<int, std::vector<std::tuple<gtsam::Pose3, gtsam::Pose3, float>>> _pose_queue;
@@ -222,6 +228,7 @@ struct MapFusion::Impl
         _num_bin++;
         int id = _num_bin - 1;
         _bin_with_id.emplace(id, kf);
+        _bin_by_robot[kf.robotname][(int)kf.pose.intensity] = id;
 
         PointType tmp_pose;
         tmp_pose.x = kf.pose.x; tmp_pose.y = kf.pose.y; tmp_pose.z = kf.pose.z;
@@ -392,17 +399,21 @@ struct MapFusion::Impl
             source_pose_initial.z = target_pose.z;
         }
 
-        Pose6D pose_source_lidar = registerClouds(transformPointCloud(bin.cloud, &source_pose_initial),
-                                                         transformPointCloud(bin_nearest.cloud, &target_pose),
+        Pose6D pose_source_lidar = registerClouds(transformPointCloud(submapAround(bin), &source_pose_initial),
+                                                         transformPointCloud(submapAround(bin_nearest), &target_pose),
                                                          source_pose_initial);
 
-        if (pose_source_lidar.intensity == -1 || pose_source_lidar.intensity > _fitness_thres) {
-            logf(true, "[%s] loop %s <-> %s rejected by registration (fitness %.6f)",
-                      _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity);
+        if (pose_source_lidar.intensity == -1 || pose_source_lidar.intensity > _fitness_thres
+            || _last_overlap < cfg.min_overlap || (cfg.require_kiss_valid && _use_kiss_matcher && !_last_kiss_valid)
+            || (_use_kiss_matcher && _last_kiss_inliers < cfg.min_kiss_inliers)) {
+            logf(false, "[%s] loop %s <-> %s rejected by registration (fitness %.6f, overlap %.2f, kiss %d, inliers %d)",
+                      _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity,
+                      _last_overlap, (int)_last_kiss_valid, _last_kiss_inliers);
             return false;
         }
-        logf(false, "[%s] loop %s <-> %s verified (fitness %.6f)",
-                 _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity);
+        logf(false, "[%s] loop %s <-> %s verified (fitness %.6f, overlap %.2f, kiss %d, inliers %d)",
+                 _robot_id.c_str(), bin.robotname.c_str(), bin_nearest.robotname.c_str(), pose_source_lidar.intensity,
+                 _last_overlap, (int)_last_kiss_valid, _last_kiss_inliers);
 
         gtsam::Pose3 pose_from   = toPose3(bin.pose);
         gtsam::Pose3 pose_to     = toPose3(pose_source_lidar);
@@ -412,6 +423,31 @@ struct MapFusion::Impl
         _loop_queue[_robot_this_th].emplace_back(id0, id1, pose_to.between(pose_target));
 
         return true;
+    }
+
+    // Registration cloud of a keyframe in its body frame: the keyframe's own cloud, or with
+    // reg_submap_keyframes > 1 the clouds of the keyframes centered on it (same robot, by keyframe index).
+    pcl::PointCloud<PointType>::Ptr submapAround(const Keyframe& center)
+    {
+        const int half = cfg.reg_submap_keyframes / 2;
+        if (half < 1)
+            return center.cloud;
+        const auto& index = _bin_by_robot[center.robotname];
+        const int k = (int)center.pose.intensity;
+        const Eigen::Affine3f center_inv = toAffine(center.pose).inverse();
+        pcl::PointCloud<PointType>::Ptr submap(new pcl::PointCloud<PointType>());
+        for (auto it = index.lower_bound(k - half); it != index.end() && it->first <= k + half; ++it) {
+            const Keyframe& nb = _bin_with_id.at(it->second);
+            pcl::PointCloud<PointType> moved;
+            pcl::transformPointCloud(*nb.cloud, moved, center_inv * toAffine(nb.pose));
+            *submap += moved;
+        }
+        return submap;
+    }
+
+    static Eigen::Affine3f toAffine(const Pose6D& p)
+    {
+        return pcl::getTransformation(p.x, p.y, p.z, p.roll, p.pitch, p.yaw);
     }
 
     pcl::PointCloud<PointType>::Ptr transformPointCloud(pcl::PointCloud<PointType>::Ptr cloudIn, Pose6D* transformIn)
@@ -431,6 +467,22 @@ struct MapFusion::Impl
         pcl::PointCloud<PointType> filtered;
         voxel_filter.filter(filtered);
         cloud->swap(filtered);
+    }
+
+    // Fraction of source points with a target point within d.
+    static float overlapRatio(pcl::PointCloud<PointType>::Ptr source, pcl::PointCloud<PointType>::Ptr target, float d)
+    {
+        if (source->empty() || target->empty())
+            return 0.0f;
+        pcl::KdTreeFLANN<PointType> kdtree;
+        kdtree.setInputCloud(target);
+        std::vector<int> idx(1);
+        std::vector<float> sq(1);
+        int close = 0;
+        for (const auto& point : source->points)
+            if (kdtree.nearestKSearch(point, 1, idx, sq) > 0 && sq[0] <= d * d)
+                close++;
+        return static_cast<float>(close) / static_cast<float>(source->size());
     }
 
     // Mean squared nearest-neighbor distance of source to target (ignores pairs farther than d_max).
@@ -493,6 +545,8 @@ struct MapFusion::Impl
 
             kiss_matcher::KISSMatcher matcher(config);
             const auto solution = matcher.estimate(src_vec, tgt_vec);
+            _last_kiss_valid = solution.valid;
+            _last_kiss_inliers = static_cast<int>(matcher.getNumFinalInliers());
             if (solution.valid) {
                 T_global.block<3, 3>(0, 0) = solution.rotation.cast<float>();
                 T_global.topRightCorner(3, 1) = solution.translation.cast<float>();
@@ -530,6 +584,7 @@ struct MapFusion::Impl
                                           pose_out.roll, pose_out.pitch, pose_out.yaw);
 
         float score = computeFitnessScore(source, target, _fitness_max_dist);
+        _last_overlap = overlapRatio(source, target, (float)cfg.gicp_max_correspondence_distance);
         pose_out.intensity = result.num_inliers != 0 ? score / static_cast<float>(result.num_inliers) : 1e8;
         return pose_out;
     }
@@ -660,6 +715,9 @@ struct MapFusion::Impl
 
         _global_map_trans[_robot_this_th].push_back(map_trans_this);
         _global_map_trans_optimized[_robot_this_th] = map_trans_this;
+        logf(false, "[%s] frame transform to %s from %zu loops: x %.2f y %.2f z %.2f yaw %.2f deg",
+             _robot_id.c_str(), _robot_this.c_str(), accepted.size(), map_trans_this.x, map_trans_this.y,
+             map_trans_this.z, map_trans_this.yaw * 180.0 / M_PI);
 
         if (!_global_odom_trans.empty())
             gtsamFactorGraph();
@@ -699,8 +757,11 @@ struct MapFusion::Impl
         auto addConstraints = [&](int id_a, int id_b, const std::vector<Pose6D>& measurements) {
             int id_0 = std::min(id_a, id_b);
             int id_1 = std::max(id_a, id_b);
-            for (const auto& m : measurements)
-                graph.add(gtsam::BetweenFactor<gtsam::Pose3>(id_0, id_1, toPose3(m), betweenNoise));
+            if (cfg.use_latest_transform)
+                graph.add(gtsam::BetweenFactor<gtsam::Pose3>(id_0, id_1, toPose3(measurements.back()), betweenNoise));
+            else
+                for (const auto& m : measurements)
+                    graph.add(gtsam::BetweenFactor<gtsam::Pose3>(id_0, id_1, toPose3(m), betweenNoise));
 
             gtsam::Pose3 measurement_latest = toPose3(measurements.back());
             if (id_0 == 0) {
@@ -772,6 +833,8 @@ struct MapFusion::Impl
         _trans_to_publish.yaw   = est.rotation().yaw();
         if (_trans_to_publish.x != 0 || _trans_to_publish.y != 0 || _trans_to_publish.z != 0)
             _trans_to_publish.intensity = 1;
+        logf(false, "[%s] published odom->map: x %.2f y %.2f z %.2f yaw %.2f deg", _robot_id.c_str(),
+             _trans_to_publish.x, _trans_to_publish.y, _trans_to_publish.z, _trans_to_publish.yaw * 180.0 / M_PI);
 
         if (_trans_to_publish.intensity == 1) {
             int robot_id_initial = robotID2Number(_robot_initial);

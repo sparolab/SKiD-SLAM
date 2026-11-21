@@ -56,6 +56,8 @@ struct MapFusionConfig
     std::string robot_initial = "jackal0";  // robot whose frame anchors the global map
     std::string pcm_matrix_dir = "/tmp";
     int loop_frame_threshold = 10;
+    bool use_latest_transform = false;  // frame-transform graph: only the latest estimate per robot pair
+                                        // (false: every estimate so far, equally weighted)
 
     solid::Config solid;  // descriptor + database (knn, min_similarity)
 
@@ -68,6 +70,7 @@ struct MapFusionConfig
 
     // registration
     float reg_voxel_size = 0.75;
+    int reg_submap_keyframes = 1;  // keyframes (centered, same robot) merged into each registration cloud
     bool use_kiss_matcher = true;
     float km_normal_radius_gain = 3.5;
     float km_fpfh_radius_gain = 5.0;
@@ -83,6 +86,10 @@ struct MapFusionConfig
     double gicp_max_correspondence_distance = 1.0;
     float fitness_threshold = 1.2;
     float fitness_max_distance = 100.0;
+    float min_overlap = 0.0;          // >0: also require this fraction of source points within
+                                      // gicp_max_correspondence_distance of the target after alignment
+    bool require_kiss_valid = false;  // reject the loop when KISS-Matcher finds no valid solution
+    int min_kiss_inliers = 0;         // reject the loop when KISS-Matcher keeps fewer final inliers
 
     // pcm
     bool use_pcm = true;

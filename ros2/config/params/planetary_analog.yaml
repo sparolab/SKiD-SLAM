@@ -99,6 +99,7 @@
       frame: "base_link"
       local_topic: "skid_slam/mapping/cloud_info"
       loop_frame_threshold: 10            # keyframes between two loops used as an intra-robot constraint
+      use_latest_transform: false        # true: frame transforms from the latest estimate only (not the mean of all so far)
 
       solid:                              # SOLiD descriptor
         num_range: 40
@@ -120,6 +121,7 @@
 
       registration:
         voxel_size: 0.75
+        submap_keyframes: 1               # >1: merge that many keyframes (centered) per registration cloud
         use_kiss_matcher: true            # false: small_gicp only (no global registration)
         kiss_matcher:
           normal_radius_gain: 3.5
@@ -137,6 +139,9 @@
           max_correspondence_distance: 1.0
         fitness_threshold: 1.2           # accept a loop if fitness score is below this
         fitness_max_distance: 100.0
+        min_overlap: 0.0                  # >0: also require this fraction of points within max_correspondence_distance
+        require_kiss_valid: false        # reject loops without a valid KISS-Matcher solution
+        min_kiss_inliers: 0               # reject loops with fewer KISS-Matcher final inliers
 
       pcm:                                # pairwise consistency maximization
         enable: true

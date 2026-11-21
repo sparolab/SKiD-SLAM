@@ -168,6 +168,7 @@ private:
         nh.param<float>("mapfusion/retrieval/position_search_radius_other", cfg.position_search_radius_other, 10.0);
 
         nh.param<float>("mapfusion/registration/voxel_size", cfg.reg_voxel_size, 0.75);
+        nh.param<int>("mapfusion/registration/submap_keyframes", cfg.reg_submap_keyframes, 1);
         nh.param<bool>("mapfusion/registration/use_kiss_matcher", cfg.use_kiss_matcher, true);
         nh.param<float>("mapfusion/registration/kiss_matcher/normal_radius_gain", cfg.km_normal_radius_gain, 3.5);
         nh.param<float>("mapfusion/registration/kiss_matcher/fpfh_radius_gain", cfg.km_fpfh_radius_gain, 5.0);
@@ -183,6 +184,10 @@ private:
         nh.param<double>("mapfusion/registration/gicp/max_correspondence_distance", cfg.gicp_max_correspondence_distance, 1.0);
         nh.param<float>("mapfusion/registration/fitness_threshold", cfg.fitness_threshold, 1.2);
         nh.param<float>("mapfusion/registration/fitness_max_distance", cfg.fitness_max_distance, 100.0);
+        nh.param<float>("mapfusion/registration/min_overlap", cfg.min_overlap, 0.0);
+        nh.param<bool>("mapfusion/registration/require_kiss_valid", cfg.require_kiss_valid, false);
+        nh.param<int>("mapfusion/registration/min_kiss_inliers", cfg.min_kiss_inliers, 0);
+        nh.param<bool>("mapfusion/use_latest_transform", cfg.use_latest_transform, false);
 
         nh.param<bool>("mapfusion/pcm/enable", cfg.use_pcm, true);
         nh.param<int>("mapfusion/pcm/start_threshold", cfg.pcm_start_threshold, 2);

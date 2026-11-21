@@ -196,6 +196,7 @@ private:
         cfg.position_search_radius_other = number("mapfusion.retrieval.position_search_radius_other", 10.0);
 
         cfg.reg_voxel_size = number("mapfusion.registration.voxel_size", 0.75);
+        cfg.reg_submap_keyframes = param<int>("mapfusion.registration.submap_keyframes", 1);
         cfg.use_kiss_matcher = param<bool>("mapfusion.registration.use_kiss_matcher", true);
         cfg.km_normal_radius_gain = number("mapfusion.registration.kiss_matcher.normal_radius_gain", 3.5);
         cfg.km_fpfh_radius_gain = number("mapfusion.registration.kiss_matcher.fpfh_radius_gain", 5.0);
@@ -211,6 +212,10 @@ private:
         cfg.gicp_max_correspondence_distance = number("mapfusion.registration.gicp.max_correspondence_distance", 1.0);
         cfg.fitness_threshold = number("mapfusion.registration.fitness_threshold", 1.2);
         cfg.fitness_max_distance = number("mapfusion.registration.fitness_max_distance", 100.0);
+        cfg.min_overlap = number("mapfusion.registration.min_overlap", 0.0);
+        cfg.require_kiss_valid = param<bool>("mapfusion.registration.require_kiss_valid", false);
+        cfg.min_kiss_inliers = param<int>("mapfusion.registration.min_kiss_inliers", 0);
+        cfg.use_latest_transform = param<bool>("mapfusion.use_latest_transform", false);
 
         cfg.use_pcm = param<bool>("mapfusion.pcm.enable", true);
         cfg.pcm_start_threshold = param<int>("mapfusion.pcm.start_threshold", 2);
