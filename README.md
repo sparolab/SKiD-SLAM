@@ -81,8 +81,12 @@ cd ~/catkin_ws && catkin_make -DCMAKE_BUILD_TYPE=Release
 ```bash
 sudo apt install ros-humble-gtsam libflann-dev liblz4-dev libtbb-dev
 
-# clone into ~/ros2_ws/src
+# clone (with --recursive) into ~/ros2_ws/src
 cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+# FAST-LIO front end (optional, frontend:=fastlio): also build thirdparty/sparo-fast-lio
+cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 src/SKiD-SLAM/thirdparty/sparo-fast-lio/spark_fast_lio \
+  --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
 </details>
@@ -96,7 +100,7 @@ ______________________________________________________________________
 roslaunch skid_slam run.launch config:=majang
 rosbag play --clock majang.bag
 
-# ROS 2
+# ROS 2 (frontend:=liosam by default; frontend:=fastlio for FAST-LIO, see below)
 ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play majang --clock
 ```
