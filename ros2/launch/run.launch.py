@@ -2,6 +2,7 @@
 
   ros2 launch skid_slam run.launch.py config:=majang rviz:=true
   ros2 launch skid_slam run.launch.py fusion:=false   # without skid_slam_mapFusion
+  ros2 launch skid_slam run.launch.py frontend:=fastlio fastlio_params:=<fast_lio.yaml>   # FAST-LIO front end
 """
 import os
 
@@ -32,6 +33,9 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         DeclareLaunchArgument('fusion', default_value='true',
                               description='start skid_slam_mapFusion for every robot'),
+        DeclareLaunchArgument('frontend', default_value='liosam', description='liosam | fastlio'),
+        DeclareLaunchArgument('fastlio_params', default_value='',
+                              description='FAST-LIO parameter file (frontend:=fastlio); empty: use a running FAST-LIO'),
 
         # Results (written on shutdown to <save_dir>/<robot>/)
         DeclareLaunchArgument('save_map', default_value='false'),
@@ -62,6 +66,8 @@ def generate_launch_description():
                 'save_whole_map': LaunchConfiguration('save_whole_map'),
                 'save_dir': LaunchConfiguration('save_dir'),
                 'fusion': LaunchConfiguration('fusion'),
+                'frontend': LaunchConfiguration('frontend'),
+                'fastlio_params': LaunchConfiguration('fastlio_params'),
             }.items(),
         ))
 

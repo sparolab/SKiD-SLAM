@@ -1,6 +1,10 @@
-"""One robot: LiDAR-inertial odometry (LIO-SAM based) + inter-robot map fusion.
+"""One robot: LiDAR-inertial odometry (LIO-SAM or FAST-LIO front end) + inter-robot map fusion.
 
 Launch arguments:
+  frontend       liosam (default: the LIO-SAM nodes) | fastlio (skid_slam_fastlioMapping on FAST-LIO)
+  fastlio_params FAST-LIO parameter file (frontend:=fastlio); empty: do not start FAST-LIO and read an
+                 already running one (fastlio_odom / fastlio_cloud, or fastlio.* in params)
+  fastlio_odom, fastlio_cloud   topics of that running FAST-LIO (odometry, scans in the body frame)
   robot          robot name, must end with a digit (e.g. jackal0)
   peers          other robots, comma separated (e.g. "jackal1,jackal2")
   params         parameter file (config/params/<config>.yaml)
@@ -48,12 +52,46 @@ def _nodes(context):
             **kwargs,
         )
 
-    return [
-        lio_node('imuPreintegration', True),
-        lio_node('imageProjection', True),
-        lio_node('featureExtraction', True),
-        # Results are written on shutdown: give it time before SIGTERM/SIGKILL escalation.
-        lio_node('mapOptmization', False, sigterm_timeout='60', sigkill_timeout='60'),
+    frontend = lc('frontend')
+    if frontend == 'liosam':
+        front = [
+            lio_node('imuPreintegration', True),
+            lio_node('imageProjection', True),
+            lio_node('featureExtraction', True),
+            # Results are written on shutdown: give it time before SIGTERM/SIGKILL escalation.
+            lio_node('mapOptmization', False, sigterm_timeout='60', sigkill_timeout='60'),
+        ]
+    elif frontend == 'fastlio':
+        # FAST-LIO (thirdparty/sparo-fast-lio, package spark_fast_lio) reads <robot>/<pointCloudTopic> and
+        # <robot>/<imuTopic> and publishes <robot>/fastlio/odometry and <robot>/fastlio/cloud_registered_body.
+        fastlio_params = lc('fastlio_params')
+        front = []
+        overrides = {k: v for k, v in (('fastlio.odom_topic', lc('fastlio_odom')),
+                                        ('fastlio.cloud_topic', lc('fastlio_cloud'))) if v}
+        if fastlio_params:
+            import yaml  # noqa: PLC0415
+            with open(params) as f:
+                sk = (yaml.safe_load(f) or {}).get('/**', {}).get('ros__parameters', {}).get('skid_slam', {})
+            front.append(Node(
+                package='spark_fast_lio', executable='spark_lio_mapping', name=f'fastlio_{robot}',
+                parameters=[fastlio_params, {'use_sim_time': LaunchConfiguration('use_sim_time'),
+                                             'publish.scan_publish_en': True,
+                                             'publish.scan_bodyframe_pub_en': True}],
+                remappings=[('lidar', f'{robot}/{sk.get("pointCloudTopic", "points_raw")}'),
+                            ('imu', f'{robot}/{sk.get("imuTopic", "imu_raw")}'),
+                            ('odometry', f'{robot}/fastlio/odometry'),
+                            ('cloud_registered_body', f'{robot}/fastlio/cloud_registered_body')],
+                output='screen'))
+            overrides = {'fastlio.odom_topic': f'{robot}/fastlio/odometry',
+                         'fastlio.cloud_topic': f'{robot}/fastlio/cloud_registered_body'}
+        front.append(Node(
+            package=PROJECT, executable=f'{PROJECT}_fastlioMapping', name=f'{PROJECT}_fastlioMapping_{robot}',
+            parameters=common + [overrides], output='screen',
+            sigterm_timeout='60', sigkill_timeout='60'))
+    else:
+        raise RuntimeError(f"frontend must be liosam or fastlio, got '{frontend}'")
+
+    return front + [
         Node(
             package=PROJECT,
             executable=f'{PROJECT}_mapFusion',
@@ -88,5 +126,11 @@ def generate_launch_description():
         DeclareLaunchArgument('save_whole_map', default_value='false'),
         DeclareLaunchArgument('save_dir', default_value='/tmp/skid_slam'),
         DeclareLaunchArgument('fusion', default_value='true'),
+        DeclareLaunchArgument('frontend', default_value='liosam', description='liosam | fastlio'),
+        DeclareLaunchArgument('fastlio_params', default_value='',
+                              description='FAST-LIO parameter file; empty: use a running FAST-LIO'),
+        DeclareLaunchArgument('fastlio_odom', default_value='', description='odometry of a running FAST-LIO'),
+        DeclareLaunchArgument('fastlio_cloud', default_value='',
+                              description='body-frame scans (cloud_registered_body) of a running FAST-LIO'),
         OpaqueFunction(function=_nodes),
     ])

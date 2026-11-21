@@ -8,3 +8,6 @@
 [submodule "thirdparty/small_gicp"]
 	path = thirdparty/small_gicp
 	url = https://github.com/koide3/small_gicp.git
+[submodule "thirdparty/sparo-fast-lio"]
+	path = thirdparty/sparo-fast-lio
+	url = https://github.com/sparolab/sparo-fast-lio.git

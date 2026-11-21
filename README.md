@@ -27,7 +27,7 @@ ______________________________________________________________________
 
 Each robot maps on its own, and the maps merge into one as soon as the robots recognize each other:
 
-- :satellite: **Odometry**: each robot runs LiDAR-inertial odometry (e.g., [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM)).
+- :satellite: **Odometry**: each robot runs LiDAR-inertial odometry: [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM) (default) or [FAST-LIO](https://github.com/sparolab/sparo-fast-lio) (ROS 2, `frontend:=fastlio`).
 - :mag: **Place recognition**: robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors.
 - :jigsaw: **Registration**: candidate loops are aligned coarse-to-fine, [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp).
 - :shield: **Outlier rejection**: pairwise consistency maximization (PCM) keeps only mutually consistent loops.
@@ -102,6 +102,31 @@ ros2 bag play majang --clock
 ```
 
 See the launch guides for all arguments and outputs: [ROS 1](ros1/launch/GUIDE.md) · [ROS 2](ros2/launch/GUIDE.md).
+
+### FAST-LIO front end (ROS 2)
+
+`frontend:=fastlio` replaces the four LIO-SAM nodes with `skid_slam_fastlioMapping`: it reads FAST-LIO's
+odometry and its scans in the body frame (`cloud_registered_body`), adds a keyframe every
+`fastlio.keyframe_dist` m (or `fastlio.keyframe_angle` rad), and keeps the keyframes in an iSAM2 pose graph with
+the loops from map fusion. Each keyframe carries a submap of the last `fastlio.submap_dist` m of scans, so the SOLiD
+descriptor also works with narrow-FOV LiDARs. Map fusion is unchanged.
+
+FAST-LIO is [sparo-fast-lio](https://github.com/sparolab/sparo-fast-lio) in `thirdparty/sparo-fast-lio`
+(package `spark_fast_lio`); build it next to SKiD-SLAM:
+
+```bash
+cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 src/SKiD-SLAM/thirdparty/sparo-fast-lio/spark_fast_lio \
+  --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+# SKiD-SLAM starts FAST-LIO per robot (on <robot>/<pointCloudTopic>, <robot>/<imuTopic>)
+ros2 launch skid_slam run.launch.py config:=<config> frontend:=fastlio fastlio_params:=<fast_lio.yaml>
+# or reads a FAST-LIO that already runs (per robot, include/robot.launch.py)
+ros2 launch skid_slam robot.launch.py robot:=robot1 peers:=robot2 params:=<config.yaml> robot_initial:=robot1 \
+  frontend:=fastlio fastlio_odom:=/robot1/fastlio/odometry fastlio_cloud:=/robot1/cloud_registered_body
+```
+
+`fastlio.*` parameters (keyframe spacing, submap length, voxel sizes, odometry noise) go in the same YAML file;
+the defaults are in `ros2/src/fastlioMapping.cpp`.
 
 ______________________________________________________________________
 
