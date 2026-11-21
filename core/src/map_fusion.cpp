@@ -797,8 +797,12 @@ struct MapFusion::Impl
     void sendOdomOutputMessage()
     {
         sendMapOutputMessage();
-        if (callbacks.robot_transform)
-            callbacks.robot_transform(_robot_this, _global_map_trans_optimized[_robot_this_th]);
+        // Share the frame transform with the other robots only once it has been estimated (>= 2 accepted
+        // loops). Before that the entry would be a default (identity) pose, which the receivers would add to
+        // their frame-transform graph as "this robot's frame equals that robot's frame".
+        auto est = _global_map_trans_optimized.find(_robot_this_th);
+        if (callbacks.robot_transform && est != _global_map_trans_optimized.end())
+            callbacks.robot_transform(_robot_this, est->second);
         sendGlobalLoopMessage();
     }
 
