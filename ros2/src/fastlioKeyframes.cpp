@@ -6,15 +6,19 @@
 // keyframes to map fusion: it reads FAST-LIO's scans in the body frame and solid_node's loop-closed pose
 // for every scan (solid/odometry), places a keyframe every `fastlio.keyframe_dist` m /
 // `fastlio.keyframe_angle` rad, and publishes it as the CloudInfo mapOptmization would
-// (<robot>/skid_slam/mapping/cloud_info: keyframe submap in the body frame, pose in initial_guess_*,
-// keyframe index in imu_available). Map fusion is unchanged.
+// (<robot>/skid_slam/mapping/cloud_info: pose in initial_guess_*, keyframe index in imu_available).
 //
 // Intra-robot loops belong to solid_node here, so the loop constraints map fusion sends back on
 // <robot>/<fusion>/loop_info are only counted; the odom->map transform (<robot>/<fusion>/trans_map) gives
 // the pose in the global map (odometry_map).
 //
-// The keyframe cloud is a submap: the scans of the last `fastlio.submap_dist` m of path, in the
-// keyframe's body frame, so the descriptor sees more than one scan of a narrow-FOV LiDAR.
+// Clouds per keyframe: the SOLiD descriptor is taken from the keyframe's own scan, moved to the LiDAR
+// origin (`fastlio.lidar_offset`, the LiDAR position in FAST-LIO's body frame) (cloud_deskewed); the
+// registration cloud holds the scans of the last `fastlio.submap_dist` m of path in the keyframe's body
+// frame (cloud_surface). With `fastlio.descriptor_ground_drop` >= 0 the descriptor scan is levelled on its
+// RANSAC ground plane and the points within that height of the ground are dropped (InLiER-style), so the
+// descriptor describes rocks and relief rather than the ground rings. Map fusion merges the registration clouds of neighbouring keyframes into a
+// centered submap (mapfusion.registration.submap_keyframes).
 //
 
 #include "skid_slam/utility.hpp"
@@ -22,11 +26,13 @@
 #include "skid_slam/msg/context_info.hpp"
 
 #include <gtsam/geometry/Pose3.h>
+#include <Eigen/Eigenvalues>
 
 #include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <random>
 
 using gtsam::Pose3;
 
@@ -63,6 +69,78 @@ pcl::PointCloud<PointType>::Ptr transformed(const pcl::PointCloud<PointType>& in
     return out;
 }
 
+// Ground plane of a scan in the LiDAR frame (RANSAC on near points below the sensor, least-squares refit):
+// unit normal n (z up) and d with n.p + d = height above the ground. False if no plane was found.
+bool fitGround(const pcl::PointCloud<PointType>& scan, Eigen::Vector3d& n, double& d)
+{
+    std::vector<Eigen::Vector3d> near;
+    for (const auto& p : scan.points)
+        if (std::hypot(p.x, p.y) < 15.0 && p.z < -1.0)
+            near.emplace_back(p.x, p.y, p.z);
+    if (near.size() < 50)
+        return false;
+    std::mt19937 rng(0);
+    std::uniform_int_distribution<size_t> pick(0, near.size() - 1);
+    size_t best = 0;
+    for (int it = 0; it < 200; ++it) {
+        const Eigen::Vector3d a = near[pick(rng)], b = near[pick(rng)], c = near[pick(rng)];
+        Eigen::Vector3d m = (b - a).cross(c - a);
+        if (m.norm() < 1e-6)
+            continue;
+        m.normalize();
+        if (m.z() < 0)
+            m = -m;
+        if (m.z() < 0.8)   // steeper than ~37 deg: not ground
+            continue;
+        const double dm = -m.dot(a);
+        size_t count = 0;
+        for (const auto& q : near)
+            count += std::fabs(m.dot(q) + dm) < 0.15;
+        if (count > best) { best = count; n = m; d = dm; }
+    }
+    if (best < 30)
+        return false;
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    std::vector<Eigen::Vector3d> inl;
+    for (const auto& q : near)
+        if (std::fabs(n.dot(q) + d) < 0.15) { inl.push_back(q); mean += q; }
+    mean /= static_cast<double>(inl.size());
+    Eigen::Matrix3d cov = Eigen::Matrix3d::Zero();
+    for (const auto& q : inl)
+        cov += (q - mean) * (q - mean).transpose();
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es(cov);
+    n = es.eigenvectors().col(0);
+    if (n.z() < 0)
+        n = -n;
+    d = -n.dot(mean);
+    return true;
+}
+
+// Descriptor scan without the ground (InLiER-style): level the scan on its ground plane (sensor stays at the
+// origin) and keep the points more than `drop` m above the ground. Returns the scan unchanged without a plane.
+pcl::PointCloud<PointType>::Ptr dropGround(const pcl::PointCloud<PointType>& scan, double drop)
+{
+    Eigen::Vector3d n;
+    double d;
+    pcl::PointCloud<PointType>::Ptr out(new pcl::PointCloud<PointType>());
+    if (!fitGround(scan, n, d)) {
+        *out = scan;
+        return out;
+    }
+    const Eigen::Matrix3d R = Eigen::Quaterniond::FromTwoVectors(n, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+    out->reserve(scan.size());
+    for (const auto& p : scan.points) {
+        const Eigen::Vector3d v(p.x, p.y, p.z);
+        if (n.dot(v) + d <= drop)
+            continue;
+        const Eigen::Vector3d w = R * v;
+        PointType q = p;
+        q.x = w.x(); q.y = w.y(); q.z = w.z();
+        out->push_back(q);
+    }
+    return out;
+}
+
 }  // namespace
 
 class FastlioKeyframes : public ParamServer
@@ -89,6 +167,8 @@ class FastlioKeyframes : public ParamServer
     // parameters
     std::string odomTopicIn, cloudTopicIn;
     double kfDist, kfAngle, submapDist, scanVoxel, featureVoxel, cropRange, mapVoxel;
+    Pose3 lidarInv;                               // LiDAR <- body
+    double groundDrop;                            // < 0: keep the ground in the descriptor scan
 
     std::mutex mtx;
     std::deque<nav_msgs::msg::Odometry::SharedPtr> odomQueue;
@@ -100,7 +180,7 @@ class FastlioKeyframes : public ParamServer
     // keyframes
     std::vector<Pose3> kfPose;                    // loop-closed pose at each keyframe (when it was made)
     std::vector<double> kfStamp;
-    std::vector<pcl::PointCloud<PointType>::Ptr> kfCloud;  // submap, body frame
+    std::vector<pcl::PointCloud<PointType>::Ptr> kfCloud;  // registration cloud, body frame
     int loopsReceived = 0;
 
     bool haveOdom2Map = false;
@@ -131,11 +211,15 @@ public:
         cloudTopicIn = param<std::string>("fastlio.cloud_topic", "cloud_registered_body");
         kfDist       = number("fastlio.keyframe_dist", 2.0);
         kfAngle      = number("fastlio.keyframe_angle", 0.3);
-        submapDist   = number("fastlio.submap_dist", 10.0);
+        submapDist   = number("fastlio.submap_dist", 2.0);
         scanVoxel    = number("fastlio.scan_voxel", 0.2);
         featureVoxel = number("fastlio.feature_voxel", 0.4);
         cropRange    = number("fastlio.crop_range", 60.0);
         mapVoxel     = number("fastlio.map_voxel", 0.5);
+        groundDrop   = number("fastlio.descriptor_ground_drop", -1.0);
+        const auto offset = param<std::vector<double>>("fastlio.lidar_offset", {0.0, 0.0, 0.0});
+        if (offset.size() == 3)
+            lidarInv = Pose3(gtsam::Rot3(), gtsam::Point3(-offset[0], -offset[1], -offset[2]));
 
         subOdom = create_subscription<nav_msgs::msg::Odometry>(odomTopicIn, rclcpp::QoS(200),
             [this](nav_msgs::msg::Odometry::SharedPtr m) {
@@ -202,7 +286,7 @@ public:
             recentScans.pop_front();
 
         if (isKeyframe(T))
-            addKeyframe(stamp, T, msg->header);
+            addKeyframe(stamp, T, msg->header, *scan);
 
         publishOdometry(odom, T);
     }
@@ -216,7 +300,8 @@ private:
         return d.translation().norm() >= kfDist || d.rotation().axisAngle().second >= kfAngle;
     }
 
-    void addKeyframe(double stamp, const Pose3& T, const std_msgs::msg::Header& header)
+    void addKeyframe(double stamp, const Pose3& T, const std_msgs::msg::Header& header,
+                     const pcl::PointCloud<PointType>& scan)
     {
         const size_t k = kfPose.size();
 
@@ -248,7 +333,10 @@ private:
         info.initial_guess_yaw   = ypr(0);
         info.imu_available = static_cast<int64_t>(k);   // keyframe index, as mapOptmization sets it
         info.odom_available = 1;
-        pcl::toROSMsg(*submapDS, info.cloud_deskewed);
+        pcl::PointCloud<PointType>::Ptr descScan = transformed(scan, lidarInv);
+        if (groundDrop >= 0.0)
+            descScan = dropGround(*descScan, groundDrop);
+        pcl::toROSMsg(*descScan, info.cloud_deskewed);
         info.cloud_deskewed.header = info.header;
         pcl::PointCloud<PointType> empty;
         pcl::toROSMsg(empty, info.cloud_corner);
@@ -258,7 +346,7 @@ private:
         pubCloudInfo->publish(info);
 
         if (pubKeyframeCloud->get_subscription_count() != 0)
-            pubKeyframeCloud->publish(info.cloud_deskewed);
+            pubKeyframeCloud->publish(info.cloud_surface);
         publishPath();
         if (k % 10 == 0)
             publishMap();
