@@ -1,18 +1,20 @@
 //
-// SKiD-SLAM: FAST-LIO front end for one robot.
+// SKiD-SLAM: FAST-LIO + SOLiD front end for one robot (frontend:=fastlio).
 //
-// Replaces the LIO-SAM nodes (imageProjection, featureExtraction, imuPreintegration, mapOptmization)
-// with an external FAST-LIO: it reads FAST-LIO's odometry and its scans in the body frame, places a
-// keyframe every `fastlio.keyframe_dist` m / `fastlio.keyframe_angle` rad, and keeps the keyframes in an
-// iSAM2 pose graph (FAST-LIO odometry between consecutive keyframes plus the loops from mapFusion).
+// Each robot runs SOLiD's FAST-LIO SLAM (thirdparty/SOLiD: FAST-LIO, ROS 2 branch of hku-mars/FAST_LIO,
+// plus solid_node, which closes the robot's own loops with SOLiD + GICP + iSAM2). This node hands its
+// keyframes to map fusion: it reads FAST-LIO's scans in the body frame and solid_node's loop-closed pose
+// for every scan (solid/odometry), places a keyframe every `fastlio.keyframe_dist` m /
+// `fastlio.keyframe_angle` rad, and publishes it as the CloudInfo mapOptmization would
+// (<robot>/skid_slam/mapping/cloud_info: keyframe submap in the body frame, pose in initial_guess_*,
+// keyframe index in imu_available). Map fusion is unchanged.
 //
-// Towards mapFusion it behaves like mapOptmization: each keyframe goes out as a CloudInfo on
-// <robot>/skid_slam/mapping/cloud_info (keyframe submap in the body frame, optimized pose in
-// initial_guess_*, keyframe index in imu_available), loops come back on <robot>/<fusion>/loop_info and
-// the odom->map transform on <robot>/<fusion>/trans_map.
+// Intra-robot loops belong to solid_node here, so the loop constraints map fusion sends back on
+// <robot>/<fusion>/loop_info are only counted; the odom->map transform (<robot>/<fusion>/trans_map) gives
+// the pose in the global map (odometry_map).
 //
 // The keyframe cloud is a submap: the scans of the last `fastlio.submap_dist` m of path, in the
-// keyframe's body frame, so the SOLiD descriptor sees more than one scan of a narrow-FOV LiDAR.
+// keyframe's body frame, so the descriptor sees more than one scan of a narrow-FOV LiDAR.
 //
 
 #include "skid_slam/utility.hpp"
@@ -20,11 +22,6 @@
 #include "skid_slam/msg/context_info.hpp"
 
 #include <gtsam/geometry/Pose3.h>
-#include <gtsam/nonlinear/ISAM2.h>
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <gtsam/nonlinear/Values.h>
-#include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/slam/PriorFactor.h>
 
 #include <deque>
 #include <filesystem>
@@ -68,12 +65,12 @@ pcl::PointCloud<PointType>::Ptr transformed(const pcl::PointCloud<PointType>& in
 
 }  // namespace
 
-class FastlioMapping : public ParamServer
+class FastlioKeyframes : public ParamServer
 {
     struct Scan
     {
         double stamp;
-        Pose3 odom;                              // FAST-LIO pose (odom frame <- body)
+        Pose3 odom;                              // loop-closed pose (robot map frame <- body)
         double path;                             // path length up to this scan [m]
         pcl::PointCloud<PointType>::Ptr cloud;   // body frame, downsampled
     };
@@ -84,7 +81,6 @@ class FastlioMapping : public ParamServer
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subOdom2Map;
 
     rclcpp::Publisher<skid_slam::msg::CloudInfo>::SharedPtr pubCloudInfo;
-    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdometry;     // corrected, odom frame
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdometryMap;  // corrected, global map frame
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubKeyframeCloud;
@@ -93,7 +89,6 @@ class FastlioMapping : public ParamServer
     // parameters
     std::string odomTopicIn, cloudTopicIn;
     double kfDist, kfAngle, submapDist, scanVoxel, featureVoxel, cropRange, mapVoxel;
-    double odomSigmaT, odomSigmaR;
 
     std::mutex mtx;
     std::deque<nav_msgs::msg::Odometry::SharedPtr> odomQueue;
@@ -103,12 +98,10 @@ class FastlioMapping : public ParamServer
     Pose3 prevOdom;
 
     // keyframes
-    std::vector<Pose3> kfOdom;                    // FAST-LIO pose at each keyframe
+    std::vector<Pose3> kfPose;                    // loop-closed pose at each keyframe (when it was made)
     std::vector<double> kfStamp;
     std::vector<pcl::PointCloud<PointType>::Ptr> kfCloud;  // submap, body frame
-    gtsam::ISAM2* isam = nullptr;
-    gtsam::Values estimate;
-    int loopsAdded = 0;
+    int loopsReceived = 0;
 
     bool haveOdom2Map = false;
     Pose3 odom2map;                               // global map <- this robot's odom frame
@@ -131,10 +124,10 @@ class FastlioMapping : public ParamServer
     }
 
 public:
-    FastlioMapping(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
-        : ParamServer("skid_slam_fastlioMapping", options)
+    FastlioKeyframes(const rclcpp::NodeOptions& options = rclcpp::NodeOptions())
+        : ParamServer("skid_slam_fastlioKeyframes", options)
     {
-        odomTopicIn  = param<std::string>("fastlio.odom_topic", "fastlio/odometry");
+        odomTopicIn  = param<std::string>("fastlio.odom_topic", "solid/odometry");
         cloudTopicIn = param<std::string>("fastlio.cloud_topic", "cloud_registered_body");
         kfDist       = number("fastlio.keyframe_dist", 2.0);
         kfAngle      = number("fastlio.keyframe_angle", 0.3);
@@ -143,13 +136,6 @@ public:
         featureVoxel = number("fastlio.feature_voxel", 0.4);
         cropRange    = number("fastlio.crop_range", 60.0);
         mapVoxel     = number("fastlio.map_voxel", 0.5);
-        odomSigmaT   = number("fastlio.odom_sigma_t", 0.05);
-        odomSigmaR   = number("fastlio.odom_sigma_r", 0.005);
-
-        gtsam::ISAM2Params params;
-        params.relinearizeThreshold = 0.1;
-        params.relinearizeSkip = 1;
-        isam = new gtsam::ISAM2(params);
 
         subOdom = create_subscription<nav_msgs::msg::Odometry>(odomTopicIn, rclcpp::QoS(200),
             [this](nav_msgs::msg::Odometry::SharedPtr m) {
@@ -158,9 +144,9 @@ public:
                 while (odomQueue.size() > 400) odomQueue.pop_front();
             });
         subCloud = create_subscription<sensor_msgs::msg::PointCloud2>(cloudTopicIn, rclcpp::QoS(20),
-            std::bind(&FastlioMapping::cloudHandler, this, std::placeholders::_1));
+            std::bind(&FastlioKeyframes::cloudHandler, this, std::placeholders::_1));
         subLoop = create_subscription<skid_slam::msg::ContextInfo>(robot_id + "/" + fusionTopic + "/loop_info",
-            reliableQos(100), std::bind(&FastlioMapping::loopHandler, this, std::placeholders::_1));
+            reliableQos(100), std::bind(&FastlioKeyframes::loopHandler, this, std::placeholders::_1));
         subOdom2Map = create_subscription<nav_msgs::msg::Odometry>(robot_id + "/" + fusionTopic + "/trans_map",
             reliableQos(10), [this](nav_msgs::msg::Odometry::SharedPtr m) {
                 std::lock_guard<std::mutex> lock(mtx);
@@ -169,17 +155,15 @@ public:
             });
 
         pubCloudInfo     = create_publisher<skid_slam::msg::CloudInfo>(robot_id + "/skid_slam/mapping/cloud_info", 1);
-        pubOdometry      = create_publisher<nav_msgs::msg::Odometry>(robot_id + "/skid_slam/mapping/odometry", 10);
         pubOdometryMap   = create_publisher<nav_msgs::msg::Odometry>(robot_id + "/skid_slam/mapping/odometry_map", 10);
         pubPath          = create_publisher<nav_msgs::msg::Path>(robot_id + "/skid_slam/mapping/path", 1);
         pubKeyframeCloud = create_publisher<sensor_msgs::msg::PointCloud2>(robot_id + "/skid_slam/mapping/keyframe_cloud", 1);
         pubMap           = create_publisher<sensor_msgs::msg::PointCloud2>(robot_id + "/skid_slam/mapping/map_global", 1);
 
-        RCLCPP_INFO(get_logger(), "\033[1;32m----> FAST-LIO front end started (%s, odometry %s, scans %s).\033[0m",
+        RCLCPP_INFO(get_logger(), "\033[1;32m----> FAST-LIO + SOLiD front end started (%s, pose %s, scans %s).\033[0m",
                     robot_id.c_str(), subOdom->get_topic_name(), subCloud->get_topic_name());
     }
 
-    ~FastlioMapping() override { delete isam; }
 
     void cloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
     {
@@ -226,39 +210,15 @@ public:
 private:
     bool isKeyframe(const Pose3& T) const
     {
-        if (kfOdom.empty())
+        if (kfPose.empty())
             return true;
-        const Pose3 d = kfOdom.back().between(T);
+        const Pose3 d = kfPose.back().between(T);
         return d.translation().norm() >= kfDist || d.rotation().axisAngle().second >= kfAngle;
-    }
-
-    // Graph estimate of keyframe k, or its odometry pose moved with the last estimate if not optimized yet.
-    Pose3 optimized(size_t k) const
-    {
-        if (estimate.exists(k))
-            return estimate.at<Pose3>(k);
-        return Pose3();
     }
 
     void addKeyframe(double stamp, const Pose3& T, const std_msgs::msg::Header& header)
     {
-        const size_t k = kfOdom.size();
-        gtsam::NonlinearFactorGraph graph;
-        gtsam::Values init;
-        if (k == 0) {
-            // The first keyframe anchors this robot's odom frame (FAST-LIO starts at the identity).
-            auto prior = gtsam::noiseModel::Diagonal::Variances((gtsam::Vector(6) << 1e-6, 1e-6, 1e-6, 1e-8, 1e-8, 1e-8).finished());
-            graph.add(gtsam::PriorFactor<Pose3>(0, T, prior));
-            init.insert(0, T);
-        } else {
-            auto noise = gtsam::noiseModel::Diagonal::Sigmas((gtsam::Vector(6) << odomSigmaR, odomSigmaR, odomSigmaR,
-                                                              odomSigmaT, odomSigmaT, odomSigmaT).finished());
-            const Pose3 rel = kfOdom.back().between(T);
-            graph.add(gtsam::BetweenFactor<Pose3>(k - 1, k, rel, noise));
-            init.insert(k, optimized(k - 1).compose(rel));
-        }
-        isam->update(graph, init);
-        estimate = isam->calculateEstimate();
+        const size_t k = kfPose.size();
 
         // Submap: recent scans in the keyframe's body frame.
         pcl::PointCloud<PointType>::Ptr submap(new pcl::PointCloud<PointType>());
@@ -272,18 +232,17 @@ private:
         std::unordered_set<uint64_t> occ2;
         voxelDownsample(*submap, *features, featureVoxel, occ2);
 
-        kfOdom.push_back(T);
+        kfPose.push_back(T);
         kfStamp.push_back(stamp);
         kfCloud.push_back(submapDS);
 
-        const Pose3 Tk = optimized(k);
-        const auto ypr = Tk.rotation().ypr();
+        const auto ypr = T.rotation().ypr();
         skid_slam::msg::CloudInfo info;
         info.header = header;
         info.header.frame_id = robot_id + "/" + lidarFrame;
-        info.initial_guess_x = Tk.x();
-        info.initial_guess_y = Tk.y();
-        info.initial_guess_z = Tk.z();
+        info.initial_guess_x = T.x();
+        info.initial_guess_y = T.y();
+        info.initial_guess_z = T.z();
         info.initial_guess_roll  = ypr(2);
         info.initial_guess_pitch = ypr(1);
         info.initial_guess_yaw   = ypr(0);
@@ -305,49 +264,27 @@ private:
             publishMap();
     }
 
-    // mapFusion sends loops between this robot's keyframes: index_from = num_ring, index_to = num_sector,
-    // relative pose in pose_*, variance in pose_intensity (as mapOptmization reads them).
+    // solid_node owns this robot's loops; map fusion's intra-robot constraints are only counted.
     void loopHandler(const skid_slam::msg::ContextInfo::SharedPtr msg)
     {
         if (msg->robot_id != robot_id)
             return;
         std::lock_guard<std::mutex> lock(mtx);
-        const int from = static_cast<int>(msg->num_ring), to = static_cast<int>(msg->num_sector);
-        if (!estimate.exists(from) || !estimate.exists(to)) {
-            RCLCPP_WARN(get_logger(), "loop %d-%d refers to an unknown keyframe; skipped", from, to);
-            return;
-        }
-        const Pose3 rel(gtsam::Rot3::RzRyRx(msg->pose_roll, msg->pose_pitch, msg->pose_yaw),
-                        gtsam::Point3(msg->pose_x, msg->pose_y, msg->pose_z));
-        const double var = msg->pose_intensity;
-        auto noise = gtsam::noiseModel::Diagonal::Variances((gtsam::Vector(6) << var, var, var, var, var, var).finished());
-        gtsam::NonlinearFactorGraph graph;
-        graph.add(gtsam::BetweenFactor<Pose3>(from, to, rel, noise));
-        isam->update(graph, gtsam::Values());
-        for (int i = 0; i < 5; ++i) isam->update();
-        estimate = isam->calculateEstimate();
-        ++loopsAdded;
-        RCLCPP_INFO(get_logger(), "loop %d-%d added (%d so far)", from, to, loopsAdded);
-        publishPath();
+        ++loopsReceived;
+        RCLCPP_INFO(get_logger(), "map fusion loop %d-%d received (not applied: solid_node owns intra-robot loops; %d so far)",
+                    static_cast<int>(msg->num_ring), static_cast<int>(msg->num_sector), loopsReceived);
     }
 
-    // Current pose = optimized last keyframe composed with FAST-LIO's motion since that keyframe.
+    // Pose in the global map once map fusion has aligned this robot.
     void publishOdometry(const nav_msgs::msg::Odometry::SharedPtr& in, const Pose3& T)
     {
-        if (kfOdom.empty())
+        if (!haveOdom2Map)
             return;
-        const size_t k = kfOdom.size() - 1;
-        const Pose3 corrected = optimized(k).compose(kfOdom[k].between(T));
         nav_msgs::msg::Odometry out = *in;
-        out.header.frame_id = robot_id + "/" + odometryFrame;
+        out.header.frame_id = mapFrame;
         out.child_frame_id = robot_id + "/" + baselinkFrame;
-        out.pose.pose = toMsg(corrected);
-        pubOdometry->publish(out);
-        if (haveOdom2Map) {
-            out.header.frame_id = mapFrame;
-            out.pose.pose = toMsg(odom2map.compose(corrected));
-            pubOdometryMap->publish(out);
-        }
+        out.pose.pose = toMsg(odom2map.compose(T));
+        pubOdometryMap->publish(out);
     }
 
     void publishPath()
@@ -355,13 +292,13 @@ private:
         if (pubPath->get_subscription_count() == 0)
             return;
         nav_msgs::msg::Path path;
-        path.header.stamp = sec2Stamp(kfStamp.empty() ? 0.0 : kfStamp.back());
+        path.header.stamp = sec2Stamp(kfStamp.back());
         path.header.frame_id = robot_id + "/" + odometryFrame;
-        for (size_t k = 0; k < kfOdom.size(); ++k) {
+        for (size_t k = 0; k < kfPose.size(); ++k) {
             geometry_msgs::msg::PoseStamped ps;
             ps.header.stamp = sec2Stamp(kfStamp[k]);
             ps.header.frame_id = path.header.frame_id;
-            ps.pose = toMsg(optimized(k));
+            ps.pose = toMsg(kfPose[k]);
             path.poses.push_back(ps);
         }
         pubPath->publish(path);
@@ -375,7 +312,7 @@ private:
         std::unordered_set<uint64_t> occ;
         const Pose3 G = haveOdom2Map ? odom2map : Pose3();
         for (size_t k = 0; k < kfCloud.size(); ++k)
-            voxelDownsample(*transformed(*kfCloud[k], G.compose(optimized(k))), map, mapVoxel, occ);
+            voxelDownsample(*transformed(*kfCloud[k], G.compose(kfPose[k])), map, mapVoxel, occ);
         sensor_msgs::msg::PointCloud2 msg;
         pcl::toROSMsg(map, msg);
         msg.header.stamp = sec2Stamp(kfStamp.back());
@@ -384,37 +321,36 @@ private:
     }
 
 public:
-    // Keyframe poses (TUM): optimized in this robot's odom frame, and in the global map frame when
-    // mapFusion has sent the odom->map transform.
+    // Keyframe poses (TUM): in this robot's map frame, and in the global map frame when map fusion has
+    // sent the odom->map transform.
     void saveResults()
     {
         std::lock_guard<std::mutex> lock(mtx);
-        if (!savePoses || kfOdom.empty())
+        if (!savePoses || kfPose.empty())
             return;
         std::filesystem::create_directories(saveDirectory);
-        auto write = [&](const std::string& name, const Pose3& G, bool raw) {
+        auto write = [&](const std::string& name, const Pose3& G) {
             std::ofstream f(saveDirectory + "/" + robot_id + "_" + name + ".txt");
             f << std::fixed << std::setprecision(9);
-            for (size_t k = 0; k < kfOdom.size(); ++k) {
-                const Pose3 T = G.compose(raw ? kfOdom[k] : optimized(k));
+            for (size_t k = 0; k < kfPose.size(); ++k) {
+                const Pose3 T = G.compose(kfPose[k]);
                 const auto q = T.rotation().toQuaternion();
                 f << kfStamp[k] << " " << T.x() << " " << T.y() << " " << T.z() << " "
                   << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << "\n";
             }
         };
-        write("fastlio_odom", Pose3(), true);
-        write("optimized_odom", Pose3(), false);
+        write("keyframes", Pose3());
         if (haveOdom2Map)
-            write("optimized_map", odom2map, false);
-        RCLCPP_INFO(get_logger(), "saved %zu keyframe poses to %s (%d loops)", kfOdom.size(),
-                    saveDirectory.c_str(), loopsAdded);
+            write("keyframes_map", odom2map);
+        RCLCPP_INFO(get_logger(), "saved %zu keyframe poses to %s (map fusion sent %d intra-robot loops)",
+                    kfPose.size(), saveDirectory.c_str(), loopsReceived);
     }
 };
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<FastlioMapping>();
+    auto node = std::make_shared<FastlioKeyframes>();
     rclcpp::executors::MultiThreadedExecutor exec;
     exec.add_node(node);
     exec.spin();

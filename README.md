@@ -27,7 +27,7 @@ ______________________________________________________________________
 
 Each robot maps on its own, and the maps merge into one as soon as the robots recognize each other:
 
-- :satellite: **Odometry**: each robot runs LiDAR-inertial odometry: [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM) (default) or [FAST-LIO](https://github.com/sparolab/sparo-fast-lio) (ROS 2, `frontend:=fastlio`).
+- :satellite: **Odometry**: each robot runs LiDAR-inertial odometry: [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM) (default) or [SOLiD](https://github.com/sparolab/SOLiD)'s FAST-LIO SLAM ([FAST-LIO](https://github.com/hku-mars/FAST_LIO) + SOLiD loop closing; ROS 2, `frontend:=fastlio`).
 - :mag: **Place recognition**: robots share compact [SOLiD](https://github.com/sparolab/SOLiD) descriptors.
 - :jigsaw: **Registration**: candidate loops are aligned coarse-to-fine, [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher) → [small_gicp](https://github.com/koide3/small_gicp).
 - :shield: **Outlier rejection**: pairwise consistency maximization (PCM) keeps only mutually consistent loops.
@@ -84,9 +84,10 @@ sudo apt install ros-humble-gtsam libflann-dev liblz4-dev libtbb-dev
 # clone (with --recursive) into ~/ros2_ws/src
 cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-# FAST-LIO front end (optional, frontend:=fastlio): also build thirdparty/sparo-fast-lio
-cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 src/SKiD-SLAM/thirdparty/sparo-fast-lio/spark_fast_lio \
-  --cmake-args -DCMAKE_BUILD_TYPE=Release
+# FAST-LIO front end (optional, frontend:=fastlio): SOLiD's FAST-LIO SLAM from thirdparty/SOLiD
+# (FAST-LIO needs Livox-SDK2 and livox_ros_driver2, as in SOLiD's docker/slam/Dockerfile.fastlio.humble)
+cd ~/ros2_ws && colcon build --base-paths src/livox_ros_driver2 src/SKiD-SLAM/thirdparty/SOLiD/thirdparty/FAST_LIO_ROS2 \
+  src/SKiD-SLAM/thirdparty/SOLiD/slam/common/ros2 src/SKiD-SLAM/ros2 --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
 </details>
@@ -109,28 +110,26 @@ See the launch guides for all arguments and outputs: [ROS 1](ros1/launch/GUIDE.m
 
 ### FAST-LIO front end (ROS 2)
 
-`frontend:=fastlio` replaces the four LIO-SAM nodes with `skid_slam_fastlioMapping`: it reads FAST-LIO's
-odometry and its scans in the body frame (`cloud_registered_body`), adds a keyframe every
-`fastlio.keyframe_dist` m (or `fastlio.keyframe_angle` rad), and keeps the keyframes in an iSAM2 pose graph with
-the loops from map fusion. Each keyframe carries a submap of the last `fastlio.submap_dist` m of scans, so the SOLiD
-descriptor also works with narrow-FOV LiDARs. Map fusion is unchanged.
-
-FAST-LIO is [sparo-fast-lio](https://github.com/sparolab/sparo-fast-lio) in `thirdparty/sparo-fast-lio`
-(package `spark_fast_lio`); build it next to SKiD-SLAM:
+`frontend:=fastlio` replaces the four LIO-SAM nodes with [SOLiD](https://github.com/sparolab/SOLiD)'s FAST-LIO SLAM
+(`thirdparty/SOLiD`): per robot, [FAST-LIO](https://github.com/hku-mars/FAST_LIO) (package `fast_lio`) and SOLiD's
+`solid_node` (package `solid_ros`), which closes the robot's own loops (SOLiD + GICP + iSAM2). `skid_slam_fastlioKeyframes`
+hands their keyframes to map fusion: FAST-LIO's scans in the body frame at `solid_node`'s loop-closed pose, a
+keyframe every `fastlio.keyframe_dist` m (or `fastlio.keyframe_angle` rad), each with a submap of the last
+`fastlio.submap_dist` m of scans so the descriptor also works with narrow-FOV LiDARs. Map fusion is unchanged.
 
 ```bash
-cd ~/ros2_ws && colcon build --base-paths src/SKiD-SLAM/ros2 src/SKiD-SLAM/thirdparty/sparo-fast-lio/spark_fast_lio \
-  --cmake-args -DCMAKE_BUILD_TYPE=Release
-
-# SKiD-SLAM starts FAST-LIO per robot (on <robot>/<pointCloudTopic>, <robot>/<imuTopic>)
-ros2 launch skid_slam run.launch.py config:=<config> frontend:=fastlio fastlio_params:=<fast_lio.yaml>
-# or reads a FAST-LIO that already runs (per robot, include/robot.launch.py)
+# SKiD-SLAM starts FAST-LIO + solid_node per robot (on /<robot>/<pointCloudTopic>, /<robot>/<imuTopic>)
+ros2 launch skid_slam run.launch.py config:=<config> frontend:=fastlio \
+  fastlio_params:=<fast_lio.yaml> solid_config:=<solid.yaml>
+# or reads a FAST-LIO SLAM that already runs (per robot, include/robot.launch.py)
 ros2 launch skid_slam robot.launch.py robot:=robot1 peers:=robot2 params:=<config.yaml> robot_initial:=robot1 \
-  frontend:=fastlio fastlio_odom:=/robot1/fastlio/odometry fastlio_cloud:=/robot1/cloud_registered_body
+  frontend:=fastlio fastlio_odom:=/robot1/solid/odometry fastlio_cloud:=/robot1/fastlio/cloud_registered_body
 ```
 
-`fastlio.*` parameters (keyframe spacing, submap length, voxel sizes, odometry noise) go in the same YAML file;
-the defaults are in `ros2/src/fastlioMapping.cpp`.
+The FAST-LIO and SOLiD configs follow SOLiD's (`slam/lidar/ros2/fast_lio_*.yaml`, `slam/config/*.yaml`, see its
+[configuration guide](https://github.com/sparolab/SOLiD/blob/main/slam/config/GUIDE.md)). `fastlio.*` parameters
+(keyframe spacing, submap length, voxel sizes) go in the SKiD-SLAM YAML; the defaults are in
+`ros2/src/fastlioKeyframes.cpp`.
 
 ______________________________________________________________________
 
@@ -180,7 +179,7 @@ We envision SKiD-SLAM as a community-driven project and love to see it grow thro
 
 ## Acknowledgements
 
-SKiD-SLAM builds on [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM), [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM), [SOLiD](https://github.com/sparolab/SOLiD), [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher), and [small_gicp](https://github.com/koide3/small_gicp). We thank the authors for open-sourcing their work.
+SKiD-SLAM builds on [LIO-SAM](https://github.com/TixiaoShan/LIO-SAM), [FAST-LIO](https://github.com/hku-mars/FAST_LIO), [DiSCo-SLAM](https://github.com/RobustFieldAutonomyLab/DiSCo-SLAM), [SOLiD](https://github.com/sparolab/SOLiD), [KISS-Matcher](https://github.com/MIT-SPARK/KISS-Matcher), and [small_gicp](https://github.com/koide3/small_gicp). We thank the authors for open-sourcing their work.
 
 ## Special Thanks
 

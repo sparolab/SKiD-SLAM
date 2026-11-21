@@ -7,14 +7,14 @@ ros2 launch skid_slam run.launch.py config:=majang
 ros2 bag play majang --clock
 ```
 
-FAST-LIO front end (thirdparty/sparo-fast-lio, built next to SKiD-SLAM):
+FAST-LIO front end (SOLiD's FAST-LIO SLAM in thirdparty/SOLiD: FAST-LIO + solid_node, built next to SKiD-SLAM):
 
 ```bash
-ros2 launch skid_slam run.launch.py config:=majang frontend:=fastlio fastlio_params:=<fast_lio.yaml>
+ros2 launch skid_slam run.launch.py config:=majang frontend:=fastlio fastlio_params:=<fast_lio.yaml> solid_config:=<solid.yaml>
 ```
 
-With a FAST-LIO that already runs, start each robot with `include/robot.launch.py` and point it at that
-FAST-LIO: `frontend:=fastlio fastlio_odom:=<odometry topic> fastlio_cloud:=<cloud_registered_body topic>`.
+With a FAST-LIO SLAM that already runs, start each robot with `include/robot.launch.py` and point it at it:
+`frontend:=fastlio fastlio_odom:=<solid/odometry> fastlio_cloud:=<cloud_registered_body>`.
 
 Save everything to `~/results` without RViz:
 
@@ -31,8 +31,9 @@ ros2 launch skid_slam run.launch.py config:=majang rviz:=false \
 | `rviz` | `true` | Open RViz |
 | `use_sim_time` | `true` | Use the bag clock |
 | `fusion` | `true` | Start the inter-robot map fusion nodes |
-| `frontend` | `liosam` | Odometry front end: `liosam` (LIO-SAM nodes) or `fastlio` (`skid_slam_fastlioMapping` on FAST-LIO) |
-| `fastlio_params` | (empty) | `frontend:=fastlio`: FAST-LIO parameter file; SKiD-SLAM then starts FAST-LIO per robot on `<robot>/<pointCloudTopic>` and `<robot>/<imuTopic>`. Empty: read a FAST-LIO that already runs |
+| `frontend` | `liosam` | Odometry front end: `liosam` (LIO-SAM nodes) or `fastlio` (SOLiD's FAST-LIO SLAM: FAST-LIO + `solid_node`, keyframes via `skid_slam_fastlioKeyframes`) |
+| `fastlio_params` | (empty) | `frontend:=fastlio`: FAST-LIO parameter file; with `solid_config`, SKiD-SLAM starts FAST-LIO and `solid_node` per robot on `/<robot>/<pointCloudTopic>` and `/<robot>/<imuTopic>`. Empty: read a FAST-LIO SLAM that already runs |
+| `solid_config` | (empty) | SOLiD parameter file for `solid_node` (LiDAR-in-IMU extrinsic, keyframes, loop closing) |
 | `robot0` `robot1` `robot2` | `jackal0` `jackal1` `jackal2` | Robot namespaces; `robot0` anchors the global map |
 | `save_poses` | `false` | Keyframe poses in the global frame |
 | `save_map` | `false` | Downsampled feature map in the global frame |

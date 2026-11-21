@@ -76,10 +76,10 @@ add_executable(${PROJECT_NAME}_mapOptmization src/mapOptmization.cpp)
 ament_target_dependencies(${PROJECT_NAME}_mapOptmization ${ros_deps})
 target_link_libraries(${PROJECT_NAME}_mapOptmization skid_slam_common gtsam OpenMP::OpenMP_CXX)
 
-# FAST-LIO front end (frontend:=fastlio): keyframes + pose graph on top of an external FAST-LIO
-add_executable(${PROJECT_NAME}_fastlioMapping src/fastlioMapping.cpp)
-ament_target_dependencies(${PROJECT_NAME}_fastlioMapping ${ros_deps})
-target_link_libraries(${PROJECT_NAME}_fastlioMapping skid_slam_common gtsam)
+# FAST-LIO + SOLiD front end (frontend:=fastlio): hands the keyframes of SOLiD's FAST-LIO SLAM to map fusion
+add_executable(${PROJECT_NAME}_fastlioKeyframes src/fastlioKeyframes.cpp)
+ament_target_dependencies(${PROJECT_NAME}_fastlioKeyframes ${ros_deps})
+target_link_libraries(${PROJECT_NAME}_fastlioKeyframes skid_slam_common gtsam)
 
 # Inter-robot map fusion (ROS wrapper around the ROS-independent core in ../core)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../core ${CMAKE_CURRENT_BINARY_DIR}/skid_core)
@@ -92,7 +92,7 @@ install(TARGETS
   ${PROJECT_NAME}_featureExtraction
   ${PROJECT_NAME}_imuPreintegration
   ${PROJECT_NAME}_mapOptmization
-  ${PROJECT_NAME}_fastlioMapping
+  ${PROJECT_NAME}_fastlioKeyframes
   ${PROJECT_NAME}_mapFusion
   DESTINATION lib/${PROJECT_NAME}
 )
